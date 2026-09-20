@@ -7,15 +7,25 @@ import ContactsPage from './pages/contacts/ContactsPage'
 import LeadsPage from './pages/crm/LeadsPage'
 import CrmTasksPage from './pages/crm/CrmTasksPage'
 import QuotationsPage from './pages/accounts/QuotationsPage'
+import QuotationFormPage from './pages/accounts/QuotationFormPage'
 import InvoicesPage from './pages/accounts/InvoicesPage'
+import InvoiceFormPage from './pages/accounts/InvoiceFormPage'
 import PaymentsPage from './pages/accounts/PaymentsPage'
+import ProductionPage from './pages/production/ProductionPage'
 import ProductionOrdersPage from './pages/production/ProductionOrdersPage'
-import ProcessesPage from './pages/production/ProcessesPage'
+import ProductionOrderFormPage from './pages/production/ProductionOrderFormPage'
+import OrderItemsPage from './pages/production/OrderItemsPage'
+import ProcessEditPage from './pages/production/ProcessEditPage'
+import StageTrackingPage from './pages/production/StageTrackingPage'
 import RawMaterialsPage from './pages/purchase/RawMaterialsPage'
 import SuppliersPage from './pages/purchase/SuppliersPage'
 import PurchaseOrdersPage from './pages/purchase/PurchaseOrdersPage'
 import DeliveriesPage from './pages/delivery/DeliveriesPage'
 import ReportsPage from './pages/ReportsPage'
+import SizesPage from './pages/masters/SizesPage'
+import BrandsPage from './pages/masters/BrandsPage'
+import ProductsPage from './pages/inventory/ProductsPage'
+import ProductDetailPage from './pages/inventory/ProductDetailPage'
 
 export default function App() {
   return (
@@ -34,11 +44,20 @@ export default function App() {
           <Route path="/crm/tasks" element={<CrmTasksPage />} />
 
           <Route path="/accounts/quotations" element={<QuotationsPage />} />
+          <Route path="/accounts/quotations/new" element={<QuotationFormPage />} />
+          <Route path="/accounts/quotations/:id/edit" element={<QuotationFormPage />} />
           <Route path="/accounts/invoices" element={<InvoicesPage />} />
+          <Route path="/accounts/invoices/new" element={<InvoiceFormPage />} />
+          <Route path="/accounts/invoices/:id/edit" element={<InvoiceFormPage />} />
           <Route path="/accounts/payments" element={<PaymentsPage />} />
 
+          <Route path="/production" element={<ProductionPage />} />
           <Route path="/production/orders" element={<ProductionOrdersPage />} />
-          <Route path="/production/processes" element={<ProcessesPage />} />
+          <Route path="/production/orders/new" element={<ProductionOrderFormPage />} />
+          <Route path="/production/orders/:id/edit" element={<ProductionOrderFormPage />} />
+          <Route path="/production/orders/:id/items" element={<OrderItemsPage />} />
+          <Route path="/production/orders/:orderId/processes/:processId/edit" element={<ProcessEditPage />} />
+          <Route path="/production/stage/:type" element={<StageTrackingPage />} />
 
           <Route path="/purchase/raw-materials" element={<RawMaterialsPage />} />
           <Route path="/purchase/suppliers" element={<SuppliersPage />} />
@@ -46,6 +65,12 @@ export default function App() {
 
           <Route path="/delivery" element={<DeliveriesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+
+          <Route path="/inventory" element={<ProductsPage />} />
+          <Route path="/inventory/products/:id" element={<ProductDetailPage />} />
+
+          <Route path="/masters/sizes" element={<SizesPage />} />
+          <Route path="/masters/brands" element={<BrandsPage />} />
         </Route>
       </Route>
 

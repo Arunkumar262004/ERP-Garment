@@ -4,27 +4,43 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
 {
-    protected function computeTotals(array $items, float $discount = 0): array
+    /**
+     * Discount is set per line item, not as a single order-level figure — the
+     * order-level total is the sum of each line's own discount.
+     */
+    protected function computeTotals(array $items): array
     {
         $subtotal = 0;
+        $discount = 0;
         $tax = 0;
 
         foreach ($items as $item) {
-            $lineTotal = $item['quantity'] * $item['unit_price'];
-            $subtotal += $lineTotal;
-            $tax += $lineTotal * (($item['tax_percent'] ?? 0) / 100);
+            $lineDiscount = $item['discount'] ?? 0;
+            $lineBase = $item['quantity'] * $item['unit_price'] - $lineDiscount;
+            $subtotal += $item['quantity'] * $item['unit_price'];
+            $discount += $lineDiscount;
+            $tax += $lineBase * (($item['tax_percent'] ?? 0) / 100);
         }
 
         return [
             'subtotal' => round($subtotal, 2),
+            'discount' => round($discount, 2),
             'tax' => round($tax, 2),
-            'total' => round($subtotal + $tax - $discount, 2),
+            'total' => round($subtotal - $discount + $tax, 2),
         ];
+    }
+
+    protected function lineTotal(array $item): float
+    {
+        $base = $item['quantity'] * $item['unit_price'] - ($item['discount'] ?? 0);
+
+        return round($base + $base * (($item['tax_percent'] ?? 0) / 100), 2);
     }
 
     public function index(Request $request)
@@ -54,17 +70,18 @@ class InvoiceController extends Controller
             'invoice_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date'],
             'status' => ['nullable', 'in:draft,sent,paid,partial,overdue,cancelled'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.description' => ['required', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit' => ['nullable', 'string', 'max:30'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'items.*.tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
         ]);
 
-        $totals = $this->computeTotals($data['items'], $data['discount'] ?? 0);
+        $totals = $this->computeTotals($data['items']);
 
         $invoice = DB::transaction(function () use ($data, $totals, $request) {
             $invoice = Invoice::create([
@@ -73,7 +90,6 @@ class InvoiceController extends Controller
                 'invoice_date' => $data['invoice_date'],
                 'due_date' => $data['due_date'] ?? null,
                 'status' => $data['status'] ?? 'draft',
-                'discount' => $data['discount'] ?? 0,
                 'notes' => $data['notes'] ?? null,
                 'balance_amount' => $totals['total'],
                 'created_by' => $request->user()->id,
@@ -83,20 +99,23 @@ class InvoiceController extends Controller
             $invoice->update(['invoice_no' => sprintf('INV-%05d', $invoice->id)]);
 
             foreach ($data['items'] as $item) {
-                $lineTotal = $item['quantity'] * $item['unit_price'];
-                $lineTotal += $lineTotal * (($item['tax_percent'] ?? 0) / 100);
-                $invoice->items()->create([...$item, 'total' => round($lineTotal, 2)]);
+                $invoice->items()->create([...$item, 'total' => $this->lineTotal($item)]);
+
+                if (! empty($item['product_variant_id'])) {
+                    ProductVariant::lockForUpdate()->findOrFail($item['product_variant_id'])
+                        ->decrement('stock_quantity', $item['quantity']);
+                }
             }
 
             return $invoice;
         });
 
-        return response()->json($invoice->load(['contact', 'items']), 201);
+        return response()->json($invoice->load(['contact', 'items.productVariant']), 201);
     }
 
     public function show(Invoice $invoice)
     {
-        return $invoice->load(['contact', 'items', 'payments', 'quotation']);
+        return $invoice->load(['contact', 'items.productVariant.product', 'payments', 'quotation']);
     }
 
     public function update(Request $request, Invoice $invoice)
@@ -107,24 +126,23 @@ class InvoiceController extends Controller
             'invoice_date' => ['sometimes', 'date'],
             'due_date' => ['nullable', 'date'],
             'status' => ['nullable', 'in:draft,sent,paid,partial,overdue,cancelled'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['sometimes', 'array', 'min:1'],
             'items.*.description' => ['required_with:items', 'string', 'max:255'],
             'items.*.quantity' => ['required_with:items', 'numeric', 'min:0.01'],
             'items.*.unit' => ['nullable', 'string', 'max:30'],
             'items.*.unit_price' => ['required_with:items', 'numeric', 'min:0'],
+            'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'items.*.tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
         ]);
 
         DB::transaction(function () use ($data, $invoice) {
             if (isset($data['items'])) {
-                $totals = $this->computeTotals($data['items'], $data['discount'] ?? $invoice->discount);
+                $totals = $this->computeTotals($data['items']);
                 $invoice->items()->delete();
                 foreach ($data['items'] as $item) {
-                    $lineTotal = $item['quantity'] * $item['unit_price'];
-                    $lineTotal += $lineTotal * (($item['tax_percent'] ?? 0) / 100);
-                    $invoice->items()->create([...$item, 'total' => round($lineTotal, 2)]);
+                    $invoice->items()->create([...$item, 'total' => $this->lineTotal($item)]);
                 }
                 $data = array_merge($data, $totals, [
                     'balance_amount' => round($totals['total'] - $invoice->paid_amount, 2),

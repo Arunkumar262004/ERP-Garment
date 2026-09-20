@@ -1,3 +1,5 @@
+import { Plus, Trash2 } from 'lucide-react'
+
 interface ItemColumn {
   name: string
   label: string
@@ -7,11 +9,13 @@ interface ItemColumn {
 }
 
 export default function ItemsEditor({
+  title,
   columns,
   items,
   onChange,
   emptyItem,
 }: {
+  title?: string
   columns: ItemColumn[]
   items: Record<string, unknown>[]
   onChange: (items: Record<string, unknown>[]) => void
@@ -30,11 +34,27 @@ export default function ItemsEditor({
     onChange([...items, { ...emptyItem }])
   }
 
+  const addButton = (
+    <button
+      type="button"
+      onClick={addItem}
+      className="flex shrink-0 items-center gap-1 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+    >
+      <Plus size={14} /> Add Line Item
+    </button>
+  )
+
   return (
     <div>
+      {title && (
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+          {addButton}
+        </div>
+      )}
       <div className="overflow-x-auto rounded-md border border-slate-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-xs font-medium text-slate-500">
             <tr>
               {columns.map((col) => (
                 <th key={col.name} className="px-3 py-2 text-left font-medium">
@@ -76,9 +96,9 @@ export default function ItemsEditor({
                   <button
                     type="button"
                     onClick={() => removeItem(index)}
-                    className="text-xs font-medium text-red-500 hover:underline"
+                    className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
                   >
-                    Remove
+                    <Trash2 size={12} /> Remove
                   </button>
                 </td>
               </tr>
@@ -86,13 +106,7 @@ export default function ItemsEditor({
           </tbody>
         </table>
       </div>
-      <button
-        type="button"
-        onClick={addItem}
-        className="mt-2 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-      >
-        + Add Line Item
-      </button>
+      {!title && <div className="mt-2">{addButton}</div>}
     </div>
   )
 }

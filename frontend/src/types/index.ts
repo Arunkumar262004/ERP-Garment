@@ -78,8 +78,11 @@ export interface LineItem {
   quantity: number
   unit: string | null
   unit_price: number
+  discount?: number
   tax_percent: number
   total?: number
+  product_variant_id?: number | null
+  productVariant?: ProductVariant | null
 }
 
 export interface Quotation {
@@ -179,12 +182,52 @@ export interface PurchaseOrder {
   items?: PurchaseOrderItem[]
 }
 
+export interface Size {
+  id: number
+  name: string
+  sort_order: number
+  status: 'active' | 'inactive'
+}
+
+export interface Brand {
+  id: number
+  name: string
+  status: 'active' | 'inactive'
+}
+
 export interface ProductionOrderItem {
   id?: number
   item_name: string
   description: string | null
   quantity: number
   unit: string | null
+  sku?: string | null
+  garment_type?: string | null
+  gsm?: number | null
+  cutting_weight_kg?: number | null
+  size_id?: number | null
+  size?: Size | null
+  color?: string | null
+  hsn_code?: string | null
+  details?: string | null
+  variant?: ProductVariant | null
+}
+
+export interface ProductionOrderMaterial {
+  id?: number
+  raw_material_id: number
+  quantity: number
+  unit?: string | null
+  rawMaterial?: RawMaterial
+}
+
+export interface ProcessStageCount {
+  process_type: string
+  pending: number
+  in_progress: number
+  completed: number
+  skipped: number
+  total: number
 }
 
 export interface ProductionProcess {
@@ -211,10 +254,42 @@ export interface ProductionOrder {
   expected_delivery_date: string | null
   status: string
   total_quantity: number
+  brand_id?: number | null
+  brand?: Brand | null
+  order_type?: 'own' | 'others'
   notes: string | null
   contact?: Contact
   items?: ProductionOrderItem[]
   processes?: ProductionProcess[]
+  materials?: ProductionOrderMaterial[]
+}
+
+export interface Product {
+  id: number
+  name: string
+  brand_id: number | null
+  brand?: Brand | null
+  garment_type: string | null
+  category: string | null
+  hsn_code: string | null
+  description: string | null
+  status: 'active' | 'inactive'
+  variants_count?: number
+  variants?: ProductVariant[]
+}
+
+export interface ProductVariant {
+  id: number
+  product_id: number
+  size_id: number | null
+  color: string | null
+  sku: string
+  stock_quantity: number
+  price: number
+  cost_price: number | null
+  production_order_item_id?: number | null
+  product?: Product
+  size?: Size | null
 }
 
 export interface Delivery {
@@ -228,11 +303,23 @@ export interface Delivery {
   tracking_no: string | null
   delivered_by: string | null
   remarks: string | null
-  productionOrder?: ProductionOrder
+  production_order?: ProductionOrder
   contact?: Contact
 }
 
+export interface Kpi {
+  value: number
+  change: number | null
+}
+
 export interface DashboardData {
+  kpis: {
+    sales_today: Kpi
+    purchases_today: Kpi
+    inventory_value: Kpi
+    production_today: Kpi
+    revenue_mtd: Kpi
+  }
   contacts: { b2b: number; b2c: number; employee: number }
   crm: { open_leads: number; won_this_month: number; pipeline_value: number }
   accounts: {
@@ -245,4 +332,22 @@ export interface DashboardData {
   purchase: { open_purchase_orders: number; low_stock_materials: number }
   delivery: { pending: number; delivered_this_month: number }
   monthly_revenue_trend: { month: string; total: number }[]
+  top_items: { label: string; value: number; percent: number }[]
+  low_stock_materials: {
+    id: number
+    sku: string
+    name: string
+    current_stock: number
+    reorder_level: number
+    unit: string
+  }[]
+  production_status: {
+    id: number
+    order_no: string
+    customer: string | null
+    status: string
+    progress: number
+    current_process: string
+  }[]
+  team_activity: { name: string; leads: number; tasks_done: number; tasks_pending: number }[]
 }

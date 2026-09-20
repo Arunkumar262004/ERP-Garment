@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'order_no', 'contact_id', 'quotation_id', 'invoice_id', 'order_date', 'expected_delivery_date',
-    'status', 'total_quantity', 'notes', 'created_by',
+    'status', 'total_quantity', 'brand_id', 'order_type', 'notes', 'created_by',
 ])]
 class ProductionOrder extends Model
 {
@@ -30,6 +30,11 @@ class ProductionOrder extends Model
         return $this->belongsTo(Contact::class);
     }
 
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(Quotation::class);
@@ -43,6 +48,11 @@ class ProductionOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ProductionOrderItem::class);
+    }
+
+    public function materials(): HasMany
+    {
+        return $this->hasMany(ProductionOrderMaterial::class);
     }
 
     public function processes(): HasMany

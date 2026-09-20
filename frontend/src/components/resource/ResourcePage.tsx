@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Paginated } from '../../types'
+import { useOpenCreateFromNav } from '../../hooks/useOpenCreateFromNav'
 import Modal from '../Modal'
+import ActionButton from '../ActionButton'
 import ResourceForm from './ResourceForm'
 import type { ResourceConfig } from './types'
 
@@ -12,6 +15,11 @@ export default function ResourcePage<T extends { id: number }>({ config }: { con
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<T | null>(null)
   const queryClient = useQueryClient()
+
+  useOpenCreateFromNav(() => {
+    setEditing(null)
+    setModalOpen(true)
+  })
 
   const queryKey = [config.queryKey, page, search, config.extraParams]
 
@@ -92,7 +100,7 @@ export default function ResourcePage<T extends { id: number }>({ config }: { con
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-xs font-medium text-slate-500">
             <tr>
               {config.columns.map((col) => (
                 <th key={col.key} className="px-4 py-3 font-medium">
@@ -132,14 +140,12 @@ export default function ResourcePage<T extends { id: number }>({ config }: { con
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right">
-                  {config.allowEdit !== false && (
-                    <button onClick={() => openEdit(row)} className="mr-3 text-brand-600 hover:underline">
-                      Edit
-                    </button>
-                  )}
-                  <button onClick={() => handleDelete(row)} className="text-red-600 hover:underline">
-                    Delete
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    {config.allowEdit !== false && (
+                      <ActionButton icon={Pencil} label="Edit" variant="edit" onClick={() => openEdit(row)} />
+                    )}
+                    <ActionButton icon={Trash2} label="Delete" variant="delete" onClick={() => handleDelete(row)} />
+                  </div>
                 </td>
               </tr>
             ))}

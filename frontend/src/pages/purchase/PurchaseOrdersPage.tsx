@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { PackageCheck, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Paginated, PurchaseOrder, RawMaterial, Supplier } from '../../types'
+import { useOpenCreateFromNav } from '../../hooks/useOpenCreateFromNav'
 import Modal from '../../components/Modal'
 import ItemsEditor from '../../components/ItemsEditor'
 import Badge from '../../components/Badge'
+import ActionButton from '../../components/ActionButton'
 
 const STATUS_OPTIONS = ['draft', 'ordered', 'partially_received', 'received', 'cancelled']
 
@@ -112,14 +115,18 @@ export default function PurchaseOrdersPage() {
   const supplierOptions = (suppliers ?? []).map((s) => ({ value: s.id, label: s.name }))
   const rawMaterialOptions = (rawMaterials ?? []).map((rm) => ({ value: rm.id, label: `${rm.name} (${rm.sku})` }))
 
+  const openCreate = () => {
+    setEditing(null)
+    setModalOpen(true)
+  }
+
+  useOpenCreateFromNav(openCreate)
+
   return (
     <div>
       <div className="mb-4 flex justify-end">
         <button
-          onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
-          }}
+          onClick={openCreate}
           className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
         >
           + New Purchase Order
@@ -128,7 +135,7 @@ export default function PurchaseOrdersPage() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-xs font-medium text-slate-500">
             <tr>
               <th className="px-4 py-3">PO No</th>
               <th className="px-4 py-3">Supplier</th>
@@ -154,29 +161,31 @@ export default function PurchaseOrdersPage() {
                   <Badge value={po.status} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {po.status !== 'received' && po.status !== 'cancelled' && (
-                    <button
-                      onClick={() => receiveMutation.mutate(po)}
-                      className="mr-3 text-emerald-600 hover:underline"
-                    >
-                      Mark Received
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setEditing(po)
-                      setModalOpen(true)
-                    }}
-                    className="mr-3 text-brand-600 hover:underline"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => confirm('Delete this purchase order?') && deleteMutation.mutate(po.id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    {po.status !== 'received' && po.status !== 'cancelled' && (
+                      <ActionButton
+                        icon={PackageCheck}
+                        label="Mark Received"
+                        variant="success"
+                        onClick={() => receiveMutation.mutate(po)}
+                      />
+                    )}
+                    <ActionButton
+                      icon={Pencil}
+                      label="Edit"
+                      variant="edit"
+                      onClick={() => {
+                        setEditing(po)
+                        setModalOpen(true)
+                      }}
+                    />
+                    <ActionButton
+                      icon={Trash2}
+                      label="Delete"
+                      variant="delete"
+                      onClick={() => confirm('Delete this purchase order?') && deleteMutation.mutate(po.id)}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}

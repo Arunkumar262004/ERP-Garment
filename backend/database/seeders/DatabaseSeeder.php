@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Brand;
 use App\Models\Contact;
 use App\Models\CrmTask;
 use App\Models\Delivery;
@@ -12,6 +13,7 @@ use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
 use App\Models\Quotation;
 use App\Models\RawMaterial;
+use App\Models\Size;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -23,6 +25,13 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        foreach (['XS', 'S', 'M', 'L', 'XL', 'XXL'] as $index => $sizeName) {
+            Size::create(['name' => $sizeName, 'sort_order' => $index]);
+        }
+
+        $brand = Brand::create(['name' => 'Kumar Basics']);
+        Brand::create(['name' => 'Urban Threads']);
+
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'admin@erp.test',
@@ -137,7 +146,7 @@ class DatabaseSeeder extends Seeder
         $productionOrder = ProductionOrder::create([
             'contact_id' => $b2b->id, 'quotation_id' => $quotation->id, 'invoice_id' => $invoice->id,
             'order_date' => now()->subDays(2), 'expected_delivery_date' => now()->addDays(10),
-            'status' => 'in_production', 'total_quantity' => 500, 'created_by' => $sales->id,
+            'status' => 'in_production', 'total_quantity' => 500, 'brand_id' => $brand?->id, 'created_by' => $sales->id,
         ]);
         $productionOrder->update(['order_no' => sprintf('PRD-%05d', $productionOrder->id)]);
         $productionOrder->items()->create([
@@ -145,14 +154,17 @@ class DatabaseSeeder extends Seeder
             'quantity' => 500, 'unit' => 'pcs',
         ]);
 
-        $processes = ['cutting', 'stitching', 'printing', 'washing', 'packing'];
+        // Only the stages this demo order has actually reached — stitching/packing don't
+        // exist yet, matching real orders where stages are added one at a time via Quick
+        // Option rather than a fixed pipeline created upfront.
+        $processes = ['dyeing', 'printing', 'cutting'];
         foreach ($processes as $i => $type) {
             $productionOrder->processes()->create([
                 'process_type' => $type,
                 'sequence' => $i + 1,
-                'status' => $i < 2 ? 'completed' : ($i === 2 ? 'in_progress' : 'pending'),
-                'quantity_completed' => $i < 2 ? 500 : ($i === 2 ? 250 : 0),
-                'start_date' => $i <= 2 ? now()->subDays(5 - $i) : null,
+                'status' => $i < 2 ? 'completed' : 'in_progress',
+                'quantity_completed' => $i < 2 ? 500 : 250,
+                'start_date' => now()->subDays(5 - $i),
                 'end_date' => $i < 2 ? now()->subDays(3 - $i) : null,
             ]);
         }

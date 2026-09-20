@@ -12,9 +12,9 @@ const config: ResourceConfig<Delivery> = {
   columns: [
     { key: 'delivery_no', label: 'Delivery No' },
     {
-      key: 'productionOrder',
+      key: 'production_order',
       label: 'Production Order',
-      render: (row) => row.productionOrder?.order_no ?? '—',
+      render: (row) => row.production_order?.order_no ?? '—',
     },
     { key: 'contact', label: 'Customer', render: (row) => row.contact?.name ?? '—' },
     { key: 'delivery_date', label: 'Date', render: (row) => row.delivery_date?.slice(0, 10) ?? '—' },

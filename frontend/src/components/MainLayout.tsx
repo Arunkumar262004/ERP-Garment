@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
@@ -12,25 +13,46 @@ const TITLES: Record<string, string> = {
   '/accounts/quotations': 'Quotations',
   '/accounts/invoices': 'Invoices',
   '/accounts/payments': 'Payments',
+  '/production': 'Production',
   '/production/orders': 'Production Orders',
-  '/production/processes': 'Process Tracking',
+  '/production/orders/new': 'New Production Order',
   '/purchase/raw-materials': 'Raw Materials',
   '/purchase/suppliers': 'Suppliers',
   '/purchase/orders': 'Purchase Orders',
   '/delivery': 'Delivery',
   '/reports': 'Reports',
+  '/inventory': 'Inventory',
+  '/masters/sizes': 'Sizes',
+  '/masters/brands': 'Brands',
+}
+
+function dynamicTitle(pathname: string): string | null {
+  const stageMatch = pathname.match(/^\/production\/stage\/([a-z_]+)$/)
+  if (stageMatch) return stageMatch[1].replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+
+  if (/^\/production\/orders\/\d+\/edit$/.test(pathname)) return 'Edit Production Order'
+  if (/^\/production\/orders\/\d+\/items$/.test(pathname)) return 'Item Details'
+  if (/^\/production\/orders\/\d+\/processes\/\d+\/edit$/.test(pathname)) return 'Edit Process'
+  if (pathname === '/accounts/quotations/new') return 'New Quotation'
+  if (/^\/accounts\/quotations\/\d+\/edit$/.test(pathname)) return 'Edit Quotation'
+  if (pathname === '/accounts/invoices/new') return 'New Invoice'
+  if (/^\/accounts\/invoices\/\d+\/edit$/.test(pathname)) return 'Edit Invoice'
+  if (/^\/inventory\/products\/\d+$/.test(pathname)) return 'Product Detail'
+
+  return null
 }
 
 export default function MainLayout() {
   const location = useLocation()
-  const title = TITLES[location.pathname] ?? 'ERP System'
+  const title = TITLES[location.pathname] ?? dynamicTitle(location.pathname) ?? 'ERP System'
+  const [collapsed, setCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-slate-50">
-      <Sidebar />
+      <Sidebar collapsed={collapsed} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar title={title} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <Topbar title={title} onToggleSidebar={() => setCollapsed((c) => !c)} />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
