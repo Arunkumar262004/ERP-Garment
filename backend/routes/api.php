@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeliveryController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\LeadController;
+use App\Http\Controllers\Api\N8nTestController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductionOrderController;
@@ -46,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('crm-tasks', CrmTaskController::class);
 
     Route::apiResource('quotations', QuotationController::class);
+    Route::post('/quotations/{quotation}/approve', [QuotationController::class, 'approve']);
     Route::apiResource('invoices', InvoiceController::class);
     Route::apiResource('payments', PaymentController::class)->only(['index', 'store', 'destroy']);
 
@@ -64,6 +66,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/production-processes/bulk-move', [ProductionProcessController::class, 'bulkMove']);
 
     Route::apiResource('deliveries', DeliveryController::class);
+
+    Route::post('/n8n/test', [N8nTestController::class, 'ping']);
 
     Route::prefix('reports')->group(function () {
         Route::get('/orders', [ReportController::class, 'orders']);

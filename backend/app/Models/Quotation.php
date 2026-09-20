@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'quotation_no', 'contact_id', 'lead_id', 'quotation_date', 'valid_until', 'status',
-    'subtotal', 'discount', 'tax', 'total', 'notes', 'created_by',
+    'approved_at', 'approval_event_id', 'subtotal', 'discount', 'tax', 'total', 'notes', 'created_by',
 ])]
 class Quotation extends Model
 {
@@ -21,6 +21,7 @@ class Quotation extends Model
         return [
             'quotation_date' => 'date',
             'valid_until' => 'date',
+            'approved_at' => 'datetime',
             'subtotal' => 'decimal:2',
             'discount' => 'decimal:2',
             'tax' => 'decimal:2',

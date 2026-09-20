@@ -44,6 +44,17 @@ services:
       mysql:
         condition: service_healthy
 
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: erp_n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      N8N_SECURE_COOKIE: "false"
+    volumes:
+      - erp_n8n_data:/home/node/.n8n
+
   frontend:
     build:
       context: ./frontend
@@ -64,3 +75,4 @@ volumes:
   erp_mysql_data:
   erp_backend_vendor:
   erp_frontend_node_modules:
+  erp_n8n_data:

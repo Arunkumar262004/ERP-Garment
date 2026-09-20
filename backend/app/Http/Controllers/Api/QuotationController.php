@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\QuotationApproved;
 use App\Http\Controllers\Controller;
 use App\Models\Quotation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class QuotationController extends Controller
 {
@@ -114,6 +116,34 @@ class QuotationController extends Controller
     public function show(Quotation $quotation)
     {
         return $quotation->load(['contact', 'items', 'lead', 'invoices']);
+    }
+
+    /**
+     * Approve a quotation and notify downstream automations (n8n).
+     *
+     * Idempotent: re-approving an already-accepted quotation is a no-op and
+     * does not re-dispatch the automation event, so retried/duplicate calls
+     * from the client never produce duplicate webhooks.
+     */
+    public function approve(Quotation $quotation)
+    {
+        if ($quotation->status === 'accepted') {
+            return $quotation->load('contact');
+        }
+
+        $quotation = DB::transaction(function () use ($quotation) {
+            $quotation->update([
+                'status' => 'accepted',
+                'approved_at' => now(),
+                'approval_event_id' => (string) Str::uuid(),
+            ]);
+
+            event(new QuotationApproved($quotation));
+
+            return $quotation;
+        });
+
+        return $quotation->load('contact');
     }
 
     public function update(Request $request, Quotation $quotation)
