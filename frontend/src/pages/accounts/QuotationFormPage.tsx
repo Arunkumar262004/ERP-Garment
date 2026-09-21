@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '../../api/client'
-import type { Contact, Paginated, Quotation } from '../../types'
+import type { Contact, Lead, Paginated, Quotation } from '../../types'
 import ItemsEditor from '../../components/ItemsEditor'
+import { validateLineItems } from '../../lib/validation'
 
 const STATUS_OPTIONS = ['draft', 'sent', 'accepted', 'rejected', 'expired']
 
@@ -12,6 +13,7 @@ const emptyItem = { description: '', quantity: 1, unit: 'pcs', unit_price: 0, di
 
 interface QuotationFormState {
   contact_id: string
+  lead_id: string
   quotation_date: string
   valid_until: string
   status: string
@@ -22,6 +24,7 @@ interface QuotationFormState {
 function emptyForm(): QuotationFormState {
   return {
     contact_id: '',
+    lead_id: '',
     quotation_date: new Date().toISOString().slice(0, 10),
     valid_until: '',
     status: 'draft',
@@ -51,15 +54,24 @@ function lineTotals(items: Record<string, unknown>[]): LineTotals {
 
 export default function QuotationFormPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const fromLeadParam = searchParams.get('from_lead')
   const isEditing = !!id
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(emptyForm())
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { data: editing } = useQuery({
     queryKey: ['quotation', id],
     queryFn: async () => (await api.get<Quotation>(`/quotations/${id}`)).data,
     enabled: isEditing,
+  })
+
+  const { data: leadSource } = useQuery({
+    queryKey: ['lead', fromLeadParam],
+    queryFn: async () => (await api.get<Lead>(`/leads/${fromLeadParam}`)).data,
+    enabled: !isEditing && !!fromLeadParam,
   })
 
   const { data: contacts } = useQuery({
@@ -71,6 +83,7 @@ export default function QuotationFormPage() {
     if (editing) {
       setForm({
         contact_id: String(editing.contact_id),
+        lead_id: editing.lead_id ? String(editing.lead_id) : '',
         quotation_date: editing.quotation_date.slice(0, 10),
         valid_until: editing.valid_until?.slice(0, 10) ?? '',
         status: editing.status,
@@ -80,10 +93,22 @@ export default function QuotationFormPage() {
     }
   }, [editing])
 
+  useEffect(() => {
+    if (leadSource && !isEditing) {
+      setForm((prev) => ({
+        ...prev,
+        lead_id: String(leadSource.id),
+        contact_id: leadSource.contact_id ? String(leadSource.contact_id) : prev.contact_id,
+        notes: prev.notes || `From enquiry ${leadSource.lead_no} — ${leadSource.name}${leadSource.company_name ? ` (${leadSource.company_name})` : ''}.`,
+      }))
+    }
+  }, [leadSource, isEditing])
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
         contact_id: form.contact_id,
+        lead_id: form.lead_id || null,
         quotation_date: form.quotation_date,
         valid_until: form.valid_until || null,
         status: form.status,
@@ -120,17 +145,39 @@ export default function QuotationFormPage() {
 
       <div className="mb-4">
         <h2 className="text-xl font-bold text-slate-800">
-          {isEditing ? `Edit Quotation${editing ? ` — ${editing.quotation_no}` : ''}` : 'New Quotation'}
+          {isEditing
+            ? `Edit Quotation${editing ? ` — ${editing.quotation_no}` : ''}`
+            : leadSource
+              ? `New Quotation — from ${leadSource.lead_no}`
+              : 'New Quotation'}
         </h2>
       </div>
 
       <form
         onSubmit={(e) => {
           e.preventDefault()
+          const error = validateLineItems(form.items)
+          if (error) {
+            setFormError(error)
+            return
+          }
+          setFormError(null)
           saveMutation.mutate()
         }}
         className="space-y-6 rounded-xl border border-slate-200 bg-white p-5"
       >
+        {formError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+        )}
+        {leadSource && !leadSource.contact_id && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            This enquiry isn&apos;t linked to a customer yet — pick one below, or{' '}
+            <Link to="/crm/leads" className="font-medium underline">
+              convert it to a customer first
+            </Link>
+            .
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div className="col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">Customer *</label>

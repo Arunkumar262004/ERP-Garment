@@ -55,4 +55,44 @@ class N8nService
             return false;
         }
     }
+
+    /**
+     * Forward a chat message to the n8n AI Agent workflow and return its
+     * reply. Synchronous (unlike send()) since the user is waiting on an
+     * answer — returns null on any failure so the caller can show a
+     * friendly error instead of leaking n8n/HTTP details.
+     */
+    public function askChat(string $message, string $sessionId): ?string
+    {
+        $url = config('services.n8n.chat_webhook_url');
+
+        if (! $url) {
+            Log::warning('N8n chat skipped: no chat webhook URL configured');
+
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(30)->post($url, [
+                'chatInput' => $message,
+                'sessionId' => $sessionId,
+            ]);
+
+            if ($response->failed()) {
+                Log::warning('N8n chat webhook responded with an error status', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return $response->json('output') ?? $response->json('reply');
+        } catch (Throwable $e) {
+            Log::warning('N8n chat webhook request failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 }

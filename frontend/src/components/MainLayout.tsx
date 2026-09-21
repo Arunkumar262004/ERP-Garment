@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import ChatWidget from './ChatWidget'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 
@@ -20,7 +21,14 @@ const TITLES: Record<string, string> = {
   '/purchase/suppliers': 'Suppliers',
   '/purchase/orders': 'Purchase Orders',
   '/delivery': 'Delivery',
-  '/reports': 'Reports',
+  '/reports/orders': 'Order Report',
+  '/reports/b2b': 'B2B Report',
+  '/reports/b2c': 'B2C Report',
+  '/reports/crm': 'CRM Report',
+  '/reports/production': 'Production Report',
+  '/reports/purchase': 'Purchase Report',
+  '/reports/accounts': 'Accounts Report',
+  '/reports/delivery': 'Delivery Report',
   '/inventory': 'Inventory',
   '/masters/sizes': 'Sizes',
   '/masters/brands': 'Brands',
@@ -56,6 +64,7 @@ export default function MainLayout() {
           <Outlet />
         </main>
       </div>
+      <ChatWidget />
     </div>
   )
 }

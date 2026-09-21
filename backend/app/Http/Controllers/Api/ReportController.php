@@ -86,9 +86,9 @@ class ReportController extends Controller
 
     public function production(Request $request)
     {
-        $query = ProductionOrder::with('processes');
+        $query = ProductionOrder::with(['contact', 'processes']);
         $this->dateFilter($request, $query, 'order_date');
-        $orders = $query->get();
+        $orders = $query->latest()->get();
 
         $processStats = $orders->flatMap->processes->groupBy('process_type')->map(function ($group) {
             return [
@@ -105,6 +105,7 @@ class ReportController extends Controller
                 'by_status' => $orders->groupBy('status')->map->count(),
                 'by_process' => $processStats,
             ],
+            'data' => $orders,
         ]);
     }
 
@@ -131,7 +132,7 @@ class ReportController extends Controller
         $this->dateFilter($request, $invoiceQuery, 'invoice_date');
         $invoices = $invoiceQuery->get();
 
-        $quotationQuery = Quotation::query();
+        $quotationQuery = Quotation::with('contact');
         $this->dateFilter($request, $quotationQuery, 'quotation_date');
         $quotations = $quotationQuery->get();
 
@@ -145,6 +146,7 @@ class ReportController extends Controller
                 'quotations_by_status' => $quotations->groupBy('status')->map->count(),
             ],
             'invoices' => $invoices,
+            'quotations' => $quotations,
         ]);
     }
 
@@ -154,7 +156,7 @@ class ReportController extends Controller
         $this->dateFilter($request, $leadQuery, 'created_at');
         $leads = $leadQuery->get();
 
-        $tasks = CrmTask::all();
+        $tasks = CrmTask::with('lead')->get();
 
         return response()->json([
             'summary' => [
@@ -167,6 +169,7 @@ class ReportController extends Controller
                 'tasks_completed' => $tasks->where('status', 'completed')->count(),
             ],
             'leads' => $leads,
+            'tasks' => $tasks,
         ]);
     }
 

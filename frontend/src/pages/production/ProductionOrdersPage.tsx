@@ -50,15 +50,20 @@ export default function ProductionOrdersPage() {
 
   const bulkMoveMutation = useMutation({
     mutationFn: (target: string) =>
-      api.post('/production-processes/bulk-move', {
-        production_order_ids: selectedIds,
-        target_process_type: target,
-      }),
-    onSuccess: (_res, target) => {
+      api.post<{ targets: { production_order_id: number; production_process_id: number }[] }>(
+        '/production-processes/bulk-move',
+        { production_order_ids: selectedIds, target_process_type: target }
+      ),
+    onSuccess: (res, target) => {
       invalidate()
       setSelectedIds([])
       setQuickOptionOpen(false)
-      navigate(`/production/stage/${target}`)
+      const targets = res.data.targets
+      if (targets.length === 1) {
+        navigate(`/production/orders/${targets[0].production_order_id}/processes/${targets[0].production_process_id}/edit`)
+      } else {
+        navigate(`/production/stage/${target}`)
+      }
     },
   })
 
@@ -74,27 +79,6 @@ export default function ProductionOrdersPage() {
       subtitle: `Customer: ${full.contact?.name ?? '—'} · Order Date: ${full.order_date.slice(0, 10)} · Status: ${full.status.replace('_', ' ')}`,
       filename: `${full.order_no}-process-sheet`,
       sections: [
-        {
-          heading: 'Order Items',
-          columns: [
-            { key: 'sku', label: 'SKU' },
-            { key: 'item_name', label: 'Item' },
-            { key: 'garment_type', label: 'Type' },
-            { key: 'size', label: 'Size' },
-            { key: 'gsm', label: 'GSM' },
-            { key: 'cutting_weight_kg', label: 'Cut Wt (kg)' },
-            { key: 'quantity', label: 'Qty' },
-            { key: 'unit', label: 'Unit' },
-          ],
-          rows: (full.items ?? []).map((i) => ({
-            ...i,
-            sku: i.sku ?? '—',
-            garment_type: i.garment_type ?? '—',
-            size: i.size?.name ?? '—',
-            gsm: i.gsm ?? '—',
-            cutting_weight_kg: i.cutting_weight_kg ?? '—',
-          })),
-        },
         {
           heading: 'Materials Used',
           columns: [

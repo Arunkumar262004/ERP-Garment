@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FieldConfig, SelectOption } from './types'
+import { firstZodError, nonNegativeNumberSchema, phoneSchema, sanitizeNonNegativeInput, sanitizePhoneInput } from '../../lib/validation'
 
 export default function ResourceForm({
   fields,
@@ -16,6 +17,7 @@ export default function ResourceForm({
 }) {
   const [values, setValues] = useState<Record<string, unknown>>(initialValues)
   const [dynamicOptions, setDynamicOptions] = useState<Record<string, SelectOption[]>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fields.forEach((field) => {
@@ -32,8 +34,30 @@ export default function ResourceForm({
     setValues((prev) => ({ ...prev, [name]: value }))
   }
 
+  const validate = (): boolean => {
+    const nextErrors: Record<string, string> = {}
+
+    fields.forEach((field) => {
+      const raw = values[field.name]
+
+      if (field.type === 'number') {
+        const error = firstZodError(nonNegativeNumberSchema(field.label), raw)
+        if (error) nextErrors[field.name] = error
+      }
+
+      if (field.name === 'phone') {
+        const error = firstZodError(phoneSchema, String(raw ?? ''))
+        if (error) nextErrors[field.name] = error
+      }
+    })
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validate()) return
     onSubmit(values)
   }
 
@@ -43,6 +67,8 @@ export default function ResourceForm({
         {fields.map((field) => {
           const options = field.loadOptions ? dynamicOptions[field.name] ?? [] : field.options ?? []
           const value = values[field.name] ?? ''
+          const isPhone = field.name === 'phone'
+          const error = errors[field.name]
 
           return (
             <div key={field.name} className={field.span === 2 ? 'col-span-2' : 'col-span-1'}>
@@ -75,14 +101,24 @@ export default function ResourceForm({
                 </select>
               ) : (
                 <input
-                  type={field.type}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  type={isPhone ? 'tel' : field.type}
+                  inputMode={isPhone ? 'numeric' : field.type === 'number' ? 'decimal' : undefined}
+                  min={field.type === 'number' ? 0 : undefined}
+                  maxLength={isPhone ? 10 : undefined}
+                  className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                    error ? 'border-red-400 focus:border-red-500' : 'border-slate-300 focus:border-brand-500'
+                  }`}
                   required={field.required}
                   placeholder={field.placeholder}
                   value={value as string}
-                  onChange={(e) => handleChange(field.name, e.target.value)}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    const sanitized = isPhone ? sanitizePhoneInput(raw) : field.type === 'number' ? sanitizeNonNegativeInput(raw) : raw
+                    handleChange(field.name, sanitized)
+                  }}
                 />
               )}
+              {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
             </div>
           )
         })}

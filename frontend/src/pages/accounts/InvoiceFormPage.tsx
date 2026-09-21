@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Contact, Invoice, Paginated, Product, Quotation } from '../../types'
 import ItemsEditor from '../../components/ItemsEditor'
+import { validateLineItems } from '../../lib/validation'
 
 const STATUS_OPTIONS = ['draft', 'sent', 'paid', 'partial', 'overdue', 'cancelled']
 
@@ -59,6 +60,7 @@ export default function InvoiceFormPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(emptyForm())
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { data: editing } = useQuery({
     queryKey: ['invoice', id],
@@ -96,36 +98,45 @@ export default function InvoiceFormPage() {
     }
   }, [editing])
 
+  // The quotations LIST (`GET /quotations`) only eager-loads `contact`, not
+  // `items` — so applying it directly would silently leave line items empty.
+  // Fetch the single quotation (`GET /quotations/{id}`), which does load items.
+  const applyQuotationMutation = useMutation({
+    mutationFn: async (quotationId: string) => (await api.get<Quotation>(`/quotations/${quotationId}`)).data,
+    onSuccess: (quotation) => {
+      setForm((f) => ({
+        ...f,
+        quotation_id: String(quotation.id),
+        contact_id: String(quotation.contact_id),
+        notes: quotation.notes ?? f.notes,
+        items: quotation.items?.length
+          ? quotation.items.map((i) => ({
+              description: i.description,
+              quantity: i.quantity,
+              unit: i.unit,
+              unit_price: i.unit_price,
+              discount: i.discount ?? 0,
+              tax_percent: i.tax_percent,
+            }))
+          : f.items,
+      }))
+    },
+  })
+
   const applyQuotation = (quotationId: string) => {
-    const quotation = (quotations ?? []).find((q) => String(q.id) === quotationId)
-    if (!quotation) {
+    if (!quotationId) {
       setForm((f) => ({ ...f, quotation_id: '' }))
       return
     }
-    setForm((f) => ({
-      ...f,
-      quotation_id: quotationId,
-      contact_id: String(quotation.contact_id),
-      notes: quotation.notes ?? f.notes,
-      items: quotation.items?.length
-        ? quotation.items.map((i) => ({
-            description: i.description,
-            quantity: i.quantity,
-            unit: i.unit,
-            unit_price: i.unit_price,
-            discount: i.discount ?? 0,
-            tax_percent: i.tax_percent,
-          }))
-        : f.items,
-    }))
+    applyQuotationMutation.mutate(quotationId)
   }
 
   useEffect(() => {
-    if (!isEditing && fromQuotationParam && quotations?.length) {
+    if (!isEditing && fromQuotationParam) {
       applyQuotation(fromQuotationParam)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, fromQuotationParam, quotations])
+  }, [isEditing, fromQuotationParam])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -186,10 +197,19 @@ export default function InvoiceFormPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault()
+          const error = validateLineItems(form.items)
+          if (error) {
+            setFormError(error)
+            return
+          }
+          setFormError(null)
           saveMutation.mutate()
         }}
         className="space-y-6 rounded-xl border border-slate-200 bg-white p-5"
       >
+        {formError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+        )}
         {!isEditing && (
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Load from Quotation (optional)</label>
@@ -206,7 +226,9 @@ export default function InvoiceFormPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-slate-400">
-              Fills in the customer and line items from that quotation automatically — you can still edit them below.
+              {applyQuotationMutation.isPending
+                ? 'Loading quotation items…'
+                : 'Fills in the customer and line items from that quotation automatically — you can still edit them below.'}
             </p>
           </div>
         )}

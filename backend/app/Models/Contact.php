@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'type', 'code', 'name', 'company_name', 'email', 'phone', 'alternate_phone',
     'gst_number', 'pan_number', 'billing_address', 'shipping_address', 'city',
     'state', 'country', 'pincode', 'employee_code', 'designation', 'department',
-    'date_of_joining', 'status', 'notes', 'created_by',
+    'category', 'date_of_joining', 'status', 'notes', 'created_by',
 ])]
 class Contact extends Model
 {

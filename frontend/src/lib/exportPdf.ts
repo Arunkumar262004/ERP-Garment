@@ -8,19 +8,34 @@ interface PdfSection {
   rows: Record<string, unknown>[]
 }
 
+interface PdfTotalLine {
+  label: string
+  value: string
+  emphasis?: boolean
+}
+
 export function exportToPdf({
   title,
   subtitle,
   sections,
   filename,
+  totals,
 }: {
   title: string
   subtitle?: string
   sections: PdfSection[]
   filename: string
+  totals?: PdfTotalLine[]
 }) {
   const doc = new jsPDF()
-  let y = 16
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 10
+
+  doc.setDrawColor(210)
+  doc.rect(margin, margin, pageWidth - margin * 2, pageHeight - margin * 2)
+
+  let y = 20
 
   doc.setFontSize(16)
   doc.setTextColor(124, 58, 237)
@@ -33,6 +48,11 @@ export function exportToPdf({
     doc.text(subtitle, 14, y)
     y += 6
   }
+
+  doc.setFontSize(8)
+  doc.setTextColor(150)
+  doc.text(`Generated on: ${new Date().toLocaleString('en-IN')}`, 14, y)
+  y += 7
 
   sections.forEach((section) => {
     if (section.heading) {
@@ -53,6 +73,18 @@ export function exportToPdf({
 
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10
   })
+
+  if (totals?.length) {
+    const rightEdge = pageWidth - margin - 4
+    totals.forEach((line) => {
+      doc.setFontSize(line.emphasis ? 12 : 10)
+      doc.setTextColor(line.emphasis ? 20 : 90)
+      doc.setFont('helvetica', line.emphasis ? 'bold' : 'normal')
+      doc.text(`${line.label}: ${line.value}`, rightEdge, y, { align: 'right' })
+      y += line.emphasis ? 7 : 6
+    })
+    doc.setFont('helvetica', 'normal')
+  }
 
   const url = doc.output('bloburl')
   window.open(url as unknown as string, '_blank')

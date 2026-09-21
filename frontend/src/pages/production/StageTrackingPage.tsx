@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Package, Pencil, Scissors, Truck, ArrowLeft, Zap } from 'lucide-react'
+import { CheckCircle2, Package, Pencil, Truck, ArrowLeft, Zap } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Paginated, ProductionOrder, ProductionProcess } from '../../types'
 import Badge from '../../components/Badge'
@@ -34,6 +34,23 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 function orderSizes(order?: ProductionOrder): string {
   const names = Array.from(new Set((order?.items ?? []).map((i) => i.size?.name).filter(Boolean))) as string[]
   return names.length ? names.join(', ') : '—'
+}
+
+function DueDate({ value }: { value: string | null }) {
+  if (!value) return <span className="text-slate-400">—</span>
+
+  const due = new Date(value.slice(0, 10))
+  const today = new Date(new Date().toDateString())
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000)
+  const dotClass = diffDays < 0 ? 'bg-red-500' : diffDays <= 3 ? 'bg-amber-500' : 'bg-slate-300'
+  const textClass = diffDays < 0 ? 'text-red-600' : diffDays <= 3 ? 'text-amber-700' : 'text-slate-600'
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${textClass}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      {value.slice(0, 10)}
+    </span>
+  )
 }
 
 export default function StageTrackingPage() {
@@ -83,11 +100,19 @@ export default function StageTrackingPage() {
 
   const bulkMoveMutation = useMutation({
     mutationFn: (target: string) =>
-      api.post('/production-processes/bulk-move', { process_ids: selectedIds, target_process_type: target }),
-    onSuccess: (_res, target) => {
+      api.post<{ targets: { production_order_id: number; production_process_id: number }[] }>(
+        '/production-processes/bulk-move',
+        { process_ids: selectedIds, target_process_type: target }
+      ),
+    onSuccess: (res, target) => {
       invalidate()
       setQuickOptionOpen(false)
-      navigate(`/production/stage/${target}`)
+      const targets = res.data.targets
+      if (targets.length === 1) {
+        navigate(`/production/orders/${targets[0].production_order_id}/processes/${targets[0].production_process_id}/edit`)
+      } else {
+        navigate(`/production/stage/${target}`)
+      }
     },
   })
 
@@ -173,6 +198,7 @@ export default function StageTrackingPage() {
               <th className="px-3 py-2">Customer</th>
               <th className="px-3 py-2">Sizes</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Due Date</th>
               <th className="px-3 py-2">Update Status</th>
               <th className="px-3 py-2 text-right">Quick Actions</th>
             </tr>
@@ -180,14 +206,14 @@ export default function StageTrackingPage() {
           <tbody className="divide-y divide-slate-100">
             {isLoading && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                   Loading…
                 </td>
               </tr>
             )}
             {!isLoading && rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                   No orders at this stage.
                 </td>
               </tr>
@@ -202,6 +228,9 @@ export default function StageTrackingPage() {
                 <td className="px-3 py-2 text-slate-600">{orderSizes(proc.production_order)}</td>
                 <td className="px-3 py-2">
                   <Badge value={proc.status} />
+                </td>
+                <td className="px-3 py-2">
+                  <DueDate value={proc.due_date} />
                 </td>
                 <td className="px-3 py-2">
                   <select
@@ -221,16 +250,9 @@ export default function StageTrackingPage() {
                     <ActionButton
                       icon={Pencil}
                       label="Edit"
-                      variant="neutral"
-                      title="Edit process details"
+                      variant="edit"
+                      title="Edit process, due date and item details"
                       to={`/production/orders/${proc.production_order_id}/processes/${proc.id}/edit`}
-                    />
-                    <ActionButton
-                      icon={Scissors}
-                      label="Item Details"
-                      variant="view"
-                      title="View or update SKU, size, weight and other item details"
-                      to={`/production/orders/${proc.production_order_id}/items`}
                     />
                     {proc.status === 'completed' && (
                       <ActionButton

@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ContactsPage from './pages/contacts/ContactsPage'
 import LeadsPage from './pages/crm/LeadsPage'
+import LeadFormPage from './pages/crm/LeadFormPage'
+import LeadCapturePage from './pages/crm/LeadCapturePage'
 import CrmTasksPage from './pages/crm/CrmTasksPage'
 import QuotationsPage from './pages/accounts/QuotationsPage'
 import QuotationFormPage from './pages/accounts/QuotationFormPage'
@@ -26,6 +28,9 @@ import SizesPage from './pages/masters/SizesPage'
 import BrandsPage from './pages/masters/BrandsPage'
 import ProductsPage from './pages/inventory/ProductsPage'
 import ProductDetailPage from './pages/inventory/ProductDetailPage'
+import UsersPage from './pages/settings/UsersPage'
+import RolesPage from './pages/settings/RolesPage'
+import ProfilePage from './pages/ProfilePage'
 
 export default function App() {
   return (
@@ -41,6 +46,9 @@ export default function App() {
           <Route path="/contacts/employees" element={<ContactsPage type="employee" />} />
 
           <Route path="/crm/leads" element={<LeadsPage />} />
+          <Route path="/crm/leads/new" element={<LeadFormPage />} />
+          <Route path="/crm/leads/capture" element={<LeadCapturePage />} />
+          <Route path="/crm/leads/:id/edit" element={<LeadFormPage />} />
           <Route path="/crm/tasks" element={<CrmTasksPage />} />
 
           <Route path="/accounts/quotations" element={<QuotationsPage />} />
@@ -64,13 +72,18 @@ export default function App() {
           <Route path="/purchase/orders" element={<PurchaseOrdersPage />} />
 
           <Route path="/delivery" element={<DeliveriesPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/reports" element={<Navigate to="/reports/orders" replace />} />
+          <Route path="/reports/:type" element={<ReportsPage />} />
 
           <Route path="/inventory" element={<ProductsPage />} />
           <Route path="/inventory/products/:id" element={<ProductDetailPage />} />
 
           <Route path="/masters/sizes" element={<SizesPage />} />
           <Route path="/masters/brands" element={<BrandsPage />} />
+
+          <Route path="/settings/users" element={<UsersPage />} />
+          <Route path="/settings/roles" element={<RolesPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Route>
 

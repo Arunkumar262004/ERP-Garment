@@ -1,9 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react'
+import { sanitizeNonNegativeInput } from '../lib/validation'
 
 interface ItemColumn {
   name: string
   label: string
-  type: 'text' | 'number' | 'select'
+  type: 'text' | 'number' | 'select' | 'date'
   options?: { value: string | number; label: string }[]
   width?: string
 }
@@ -85,9 +86,17 @@ export default function ItemsEditor({
                     ) : (
                       <input
                         type={col.type}
+                        min={col.type === 'number' ? 0 : undefined}
+                        inputMode={col.type === 'number' ? 'decimal' : undefined}
                         className="w-full min-w-[100px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
                         value={(item[col.name] as string | number) ?? ''}
-                        onChange={(e) => updateItem(index, col.name, e.target.value)}
+                        onChange={(e) =>
+                          updateItem(
+                            index,
+                            col.name,
+                            col.type === 'number' ? sanitizeNonNegativeInput(e.target.value) : e.target.value
+                          )
+                        }
                       />
                     )}
                   </td>

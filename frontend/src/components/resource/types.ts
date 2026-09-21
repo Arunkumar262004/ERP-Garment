@@ -32,4 +32,5 @@ export interface ResourceConfig<T> {
   extraParams?: Record<string, string>
   searchPlaceholder?: string
   allowEdit?: boolean
+  wide?: boolean
 }

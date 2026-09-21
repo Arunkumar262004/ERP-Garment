@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ProductionOrder;
 use App\Models\ProductionProcess;
+use App\Models\User;
+use App\Notifications\ProcessStageChangedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -66,12 +68,54 @@ class ProductionProcessController extends Controller
             'process_type' => ['required', 'in:'.self::PROCESS_TYPES],
             'sequence' => ['nullable', 'integer', 'min:1'],
             'assigned_to' => ['nullable', 'exists:users,id'],
+            'due_date' => ['nullable', 'date'],
         ]);
 
         $data['sequence'] = $data['sequence'] ?? ($productionOrder->processes()->max('sequence') + 1);
         $process = $productionOrder->processes()->create($data);
+        $this->importAllCurrentItems($process);
 
-        return response()->json($process->load('assignee'), 201);
+        return response()->json($process->load(['assignee', 'items']), 201);
+    }
+
+    /**
+     * Snapshot every order item currently on the order into a process's
+     * checklist. Called when the process is first created so the item(s) that
+     * existed at that point never need a manual import.
+     */
+    protected function importAllCurrentItems(ProductionProcess $process): void
+    {
+        $itemIds = $process->productionOrder->items()->pluck('id');
+
+        if ($itemIds->isEmpty()) {
+            return;
+        }
+
+        $process->items()->syncWithoutDetaching(
+            $itemIds->mapWithKeys(fn ($id) => [$id => ['imported_at' => now()]])
+        );
+    }
+
+    /**
+     * Pull in any order items added after this process was created (or after
+     * the last import) — items the process's checklist has never seen.
+     */
+    public function importMissedItems(ProductionProcess $productionProcess)
+    {
+        $existingIds = $productionProcess->items()->pluck('production_order_items.id');
+        $missedIds = $productionProcess->productionOrder->items()
+            ->whereNotIn('id', $existingIds)
+            ->pluck('id');
+
+        if ($missedIds->isEmpty()) {
+            return response()->json(['imported' => []]);
+        }
+
+        $productionProcess->items()->syncWithoutDetaching(
+            $missedIds->mapWithKeys(fn ($id) => [$id => ['imported_at' => now()]])
+        );
+
+        return response()->json(['imported' => $missedIds->values()]);
     }
 
     public function update(Request $request, ProductionProcess $productionProcess)
@@ -79,9 +123,11 @@ class ProductionProcessController extends Controller
         $data = $request->validate([
             'status' => ['nullable', 'in:pending,in_progress,completed,skipped'],
             'assigned_to' => ['nullable', 'exists:users,id'],
+            'assigned_employee_id' => ['nullable', 'exists:contacts,id'],
             'quantity_completed' => ['nullable', 'numeric', 'min:0'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date'],
+            'due_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string'],
         ]);
 
@@ -93,11 +139,36 @@ class ProductionProcessController extends Controller
             $data['end_date'] = now()->toDateString();
         }
 
+        $oldStatus = $productionProcess->status;
+
         $productionProcess->update($data);
 
         $this->refreshOrderStatus($productionProcess->productionOrder);
+        $this->notifyStageChange($productionProcess, $oldStatus);
 
-        return $productionProcess->load('assignee');
+        return $productionProcess->load(['assignee', 'employee']);
+    }
+
+    /**
+     * Notify the assigned system user (mail + in-app) when a process's status
+     * changes — the "move one stage to another" moment the business flow
+     * cares about. Silently does nothing if nobody is assigned or the status
+     * didn't actually change, so routine field edits (remarks, dates) stay
+     * quiet.
+     */
+    protected function notifyStageChange(ProductionProcess $process, string $oldStatus): void
+    {
+        if ($process->status === $oldStatus || ! $process->assigned_to) {
+            return;
+        }
+
+        $user = $process->assignee ?? User::find($process->assigned_to);
+
+        $user?->notify(new ProcessStageChangedNotification(
+            $process->fresh(['productionOrder.contact']),
+            $oldStatus,
+            $process->status
+        ));
     }
 
     /**
@@ -173,7 +244,9 @@ class ProductionProcessController extends Controller
                 ->map(fn (ProductionProcess $process) => ['order' => $process->productionOrder, 'process' => $process]);
         }
 
-        DB::transaction(function () use ($entries, $data) {
+        $targets = [];
+
+        DB::transaction(function () use ($entries, $data, &$targets) {
             foreach ($entries as $entry) {
                 $order = $entry['order'];
                 $process = $entry['process'];
@@ -194,6 +267,7 @@ class ProductionProcessController extends Controller
                         'sequence' => (int) $order->processes()->max('sequence') + 1,
                         'status' => 'pending',
                     ]);
+                    $this->importAllCurrentItems($target);
                 }
 
                 if ((! $process || $target->id !== $process->id) && $target->status === 'pending') {
@@ -201,10 +275,12 @@ class ProductionProcessController extends Controller
                 }
 
                 $this->refreshOrderStatus($order);
+
+                $targets[] = ['production_order_id' => $order->id, 'production_process_id' => $target->id];
             }
         });
 
-        return response()->json(['moved' => $entries->count()]);
+        return response()->json(['moved' => $entries->count(), 'targets' => $targets]);
     }
 
     protected function refreshOrderStatus(ProductionOrder $order): void

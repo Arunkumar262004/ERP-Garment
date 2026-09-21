@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Download, Pencil, Trash2 } from 'lucide-react'
+import { Download, Pencil, Shirt, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Invoice, Paginated } from '../../types'
 import { exportToPdf } from '../../lib/exportPdf'
@@ -42,6 +42,14 @@ export default function InvoicesPage() {
           ],
           rows: (full.items ?? []).map((i) => ({ ...i, discount: i.discount ?? 0 })),
         },
+      ],
+      totals: [
+        { label: 'Subtotal', value: `₹${Number(full.subtotal).toLocaleString('en-IN')}` },
+        { label: 'Discount', value: `₹${Number(full.discount).toLocaleString('en-IN')}` },
+        { label: 'GST', value: `₹${Number(full.tax).toLocaleString('en-IN')}` },
+        { label: 'Grand Total', value: `₹${Number(full.total).toLocaleString('en-IN')}`, emphasis: true },
+        { label: 'Paid', value: `₹${Number(full.paid_amount).toLocaleString('en-IN')}` },
+        { label: 'Balance Due', value: `₹${Number(full.balance_amount).toLocaleString('en-IN')}`, emphasis: true },
       ],
     })
   }
@@ -94,6 +102,13 @@ export default function InvoicesPage() {
                       variant="neutral"
                       title="Download invoice as PDF"
                       onClick={() => downloadInvoice(inv)}
+                    />
+                    <ActionButton
+                      icon={Shirt}
+                      label="Create Production Order"
+                      variant="success"
+                      title="Create a production order pre-filled from this invoice"
+                      to={`/production/orders/new?from_invoice=${inv.id}`}
                     />
                     <ActionButton icon={Pencil} label="Edit" variant="edit" to={`/accounts/invoices/${inv.id}/edit`} />
                     <ActionButton

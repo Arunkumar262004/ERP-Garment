@@ -14,12 +14,16 @@ use Illuminate\Validation\ValidationException;
 
 class ProductionOrderItemController extends Controller
 {
-    public function update(Request $request, ProductionOrder $productionOrder, ProductionOrderItem $item)
+    protected function itemRules(ProductionOrderItem $item = null): array
     {
-        abort_unless($item->production_order_id === $productionOrder->id, 404);
+        $skuUnique = 'unique:production_order_items,sku'.($item ? ','.$item->id : '');
 
-        $data = $request->validate([
-            'sku' => ['nullable', 'string', 'max:100', 'unique:production_order_items,sku,'.$item->id],
+        return [
+            'item_name' => [$item ? 'sometimes' : 'required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'quantity' => [$item ? 'sometimes' : 'required', 'numeric', 'min:0.01'],
+            'unit' => ['nullable', 'string', 'max:30'],
+            'sku' => ['nullable', 'string', 'max:100', $skuUnique],
             'garment_type' => ['nullable', 'string', 'max:100'],
             'gsm' => ['nullable', 'integer', 'min:0'],
             'cutting_weight_kg' => ['nullable', 'numeric', 'min:0'],
@@ -27,7 +31,49 @@ class ProductionOrderItemController extends Controller
             'color' => ['nullable', 'string', 'max:50'],
             'hsn_code' => ['nullable', 'string', 'max:20'],
             'details' => ['nullable', 'string'],
-        ]);
+        ];
+    }
+
+    protected function refreshOrderQuantity(ProductionOrder $productionOrder): void
+    {
+        $productionOrder->update(['total_quantity' => $productionOrder->items()->sum('quantity')]);
+    }
+
+    /**
+     * Add a new line item directly to an existing order — used by the process
+     * edit page's items table so staff can add items without leaving that
+     * screen. Optionally imports the new item straight into the process it
+     * was added from, so it doesn't show up as "missed".
+     */
+    public function store(Request $request, ProductionOrder $productionOrder)
+    {
+        $data = $request->validate(array_merge($this->itemRules(), [
+            'production_process_id' => ['nullable', 'exists:production_processes,id'],
+        ]));
+
+        $processId = $data['production_process_id'] ?? null;
+        unset($data['production_process_id']);
+
+        $item = DB::transaction(function () use ($productionOrder, $data, $processId) {
+            $item = $productionOrder->items()->create($data);
+            $this->refreshOrderQuantity($productionOrder);
+
+            if ($processId) {
+                $process = $productionOrder->processes()->find($processId);
+                $process?->items()->syncWithoutDetaching([$item->id => ['imported_at' => now()]]);
+            }
+
+            return $item;
+        });
+
+        return response()->json($item->load('size'), 201);
+    }
+
+    public function update(Request $request, ProductionOrder $productionOrder, ProductionOrderItem $item)
+    {
+        abort_unless($item->production_order_id === $productionOrder->id, 404);
+
+        $data = $request->validate($this->itemRules($item));
 
         if (empty($data['sku']) && empty($item->sku)) {
             $data['sku'] = sprintf('%s-%03d', $productionOrder->order_no, $item->id);
@@ -35,7 +81,21 @@ class ProductionOrderItemController extends Controller
 
         $item->update($data);
 
-        return $item;
+        if (array_key_exists('quantity', $data)) {
+            $this->refreshOrderQuantity($productionOrder);
+        }
+
+        return $item->load('size');
+    }
+
+    public function destroy(ProductionOrder $productionOrder, ProductionOrderItem $item)
+    {
+        abort_unless($item->production_order_id === $productionOrder->id, 404);
+
+        $item->delete();
+        $this->refreshOrderQuantity($productionOrder);
+
+        return response()->json(null, 204);
     }
 
     /**

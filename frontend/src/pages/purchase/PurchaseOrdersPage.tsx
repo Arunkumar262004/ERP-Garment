@@ -6,6 +6,7 @@ import type { Paginated, PurchaseOrder, RawMaterial, Supplier } from '../../type
 import { useOpenCreateFromNav } from '../../hooks/useOpenCreateFromNav'
 import Modal from '../../components/Modal'
 import ItemsEditor from '../../components/ItemsEditor'
+import { validateLineItems } from '../../lib/validation'
 import Badge from '../../components/Badge'
 import ActionButton from '../../components/ActionButton'
 
@@ -36,6 +37,7 @@ export default function PurchaseOrdersPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<PurchaseOrder | null>(null)
   const [form, setForm] = useState(emptyForm())
+  const [formError, setFormError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -217,10 +219,19 @@ export default function PurchaseOrdersPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
+              const error = validateLineItems(form.items)
+              if (error) {
+                setFormError(error)
+                return
+              }
+              setFormError(null)
               saveMutation.mutate()
             }}
             className="space-y-4"
           >
+            {formError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+            )}
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Supplier *</label>

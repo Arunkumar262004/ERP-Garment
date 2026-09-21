@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -35,7 +36,7 @@ class AuthController extends Controller
         $token = $user->createToken('erp-frontend')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load('assignedRole'),
             'token' => $token,
         ]);
     }
@@ -49,6 +50,36 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($request->user()->load('assignedRole'));
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($request->user()->id)],
+        ]);
+
+        $request->user()->update($data);
+
+        return response()->json($request->user()->fresh()->load('assignedRole'));
+    }
+
+    public function changePassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (! Hash::check($data['current_password'], $request->user()->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        $request->user()->update(['password' => Hash::make($data['new_password'])]);
+
+        return response()->json(['message' => 'Password updated successfully.']);
     }
 }

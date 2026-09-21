@@ -38,6 +38,20 @@ const EMPLOYEE_FIELDS: FieldConfig[] = [
   { name: 'employee_code', label: 'Employee Code', type: 'text' },
   { name: 'designation', label: 'Designation', type: 'text' },
   { name: 'department', label: 'Department', type: 'text' },
+  {
+    name: 'category',
+    label: 'Category',
+    type: 'select',
+    options: [
+      { value: 'cutting', label: 'Cutting' },
+      { value: 'dyeing', label: 'Dyeing' },
+      { value: 'stitching', label: 'Stitching' },
+      { value: 'printing', label: 'Printing' },
+      { value: 'packing', label: 'Packing' },
+      { value: 'quality_check', label: 'Quality Check' },
+      { value: 'other', label: 'Other' },
+    ],
+  },
   { name: 'date_of_joining', label: 'Date of Joining', type: 'date' },
   { name: 'email', label: 'Email', type: 'email' },
   { name: 'phone', label: 'Phone', type: 'text' },
@@ -64,6 +78,7 @@ export default function ContactsPage({ type }: { type: ContactType }) {
           { key: 'name', label: 'Name' },
           { key: 'designation', label: 'Designation' },
           { key: 'department', label: 'Department' },
+          { key: 'category', label: 'Category', render: (row: Contact) => (row.category ? <Badge value={row.category} /> : '—') },
           { key: 'phone', label: 'Phone' },
           { key: 'status', label: 'Status', render: (row: Contact) => <Badge value={row.status} /> },
         ]
@@ -85,6 +100,7 @@ export default function ContactsPage({ type }: { type: ContactType }) {
     columns,
     fields,
     searchPlaceholder: 'Search by name, phone, email…',
+    wide: type === 'employee',
   }
 
   return <ResourcePage<Contact> config={config} />

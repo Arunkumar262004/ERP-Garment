@@ -1,8 +1,18 @@
+export interface Role {
+  id: number
+  name: string
+  permissions: string[] | null
+  users_count?: number
+}
+
 export interface User {
   id: number
   name: string
   email: string
   role: 'admin' | 'sales' | 'accounts' | 'production' | 'purchase' | 'crm' | 'viewer'
+  role_id?: number | null
+  assigned_role?: Role | null
+  specialization?: 'healthcare_erp' | 'basic_crm' | 'automation_crm' | 'general' | null
   is_active: boolean
 }
 
@@ -12,6 +22,19 @@ export interface Paginated<T> {
   last_page: number
   total: number
   per_page: number
+}
+
+export interface AppNotification {
+  id: string
+  type: string
+  data: {
+    title: string
+    message: string
+    url?: string
+    [key: string]: unknown
+  }
+  read_at: string | null
+  created_at: string
 }
 
 export type ContactType = 'b2b' | 'b2c' | 'employee'
@@ -36,8 +59,20 @@ export interface Contact {
   employee_code: string | null
   designation: string | null
   department: string | null
+  category: string | null
   date_of_joining: string | null
   status: 'active' | 'inactive'
+  notes: string | null
+}
+
+export interface LeadItem {
+  id?: number
+  product_id: number | null
+  description: string
+  quantity: number
+  unit: string | null
+  target_price: number | null
+  delivery_date: string | null
   notes: string | null
 }
 
@@ -53,9 +88,12 @@ export interface Lead {
   status: string
   expected_value: number
   expected_close_date: string | null
+  follow_up_date: string | null
   assigned_to: number | null
   notes: string | null
   contact?: Contact
+  assignee?: User | null
+  items?: LeadItem[]
 }
 
 export interface CrmTask {
@@ -237,11 +275,15 @@ export interface ProductionProcess {
   sequence: number
   status: string
   assigned_to: number | null
+  assigned_employee_id: number | null
   quantity_completed: number
   start_date: string | null
   end_date: string | null
+  due_date: string | null
   remarks: string | null
   production_order?: ProductionOrder
+  items?: ProductionOrderItem[]
+  employee?: Contact | null
 }
 
 export interface ProductionOrder {

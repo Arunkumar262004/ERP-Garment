@@ -20,6 +20,10 @@ class ContactController extends Controller
             $query->where('status', $request->string('status'));
         }
 
+        if ($request->filled('category')) {
+            $query->where('category', $request->string('category'));
+        }
+
         if ($request->filled('search')) {
             $search = $request->string('search');
             $query->where(function ($q) use ($search) {
@@ -41,7 +45,7 @@ class ContactController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'digits:10'],
             'alternate_phone' => ['nullable', 'string', 'max:30'],
             'gst_number' => ['nullable', 'string', 'max:30'],
             'pan_number' => ['nullable', 'string', 'max:20'],
@@ -54,6 +58,7 @@ class ContactController extends Controller
             'employee_code' => ['nullable', 'string', 'max:50'],
             'designation' => ['nullable', 'string', 'max:100'],
             'department' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'in:cutting,dyeing,stitching,printing,packing,quality_check,other'],
             'date_of_joining' => ['nullable', 'date'],
             'status' => ['nullable', 'in:active,inactive'],
             'notes' => ['nullable', 'string'],
@@ -80,7 +85,7 @@ class ContactController extends Controller
             'name' => ['sometimes', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'digits:10'],
             'alternate_phone' => ['nullable', 'string', 'max:30'],
             'gst_number' => ['nullable', 'string', 'max:30'],
             'pan_number' => ['nullable', 'string', 'max:20'],
@@ -93,6 +98,7 @@ class ContactController extends Controller
             'employee_code' => ['nullable', 'string', 'max:50'],
             'designation' => ['nullable', 'string', 'max:100'],
             'department' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'in:cutting,dyeing,stitching,printing,packing,quality_check,other'],
             'date_of_joining' => ['nullable', 'date'],
             'status' => ['nullable', 'in:active,inactive'],
             'notes' => ['nullable', 'string'],

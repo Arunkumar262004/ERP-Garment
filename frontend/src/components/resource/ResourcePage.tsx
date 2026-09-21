@@ -178,7 +178,11 @@ export default function ResourcePage<T extends { id: number }>({ config }: { con
       )}
 
       {modalOpen && (
-        <Modal title={editing ? `Edit ${config.title}` : `Add ${config.title}`} onClose={() => setModalOpen(false)}>
+        <Modal
+          title={editing ? `Edit ${config.title}` : `Add ${config.title}`}
+          onClose={() => setModalOpen(false)}
+          wide={config.wide}
+        >
           <ResourceForm
             fields={config.fields}
             initialValues={initialValues}

@@ -11,11 +11,7 @@ function escapeCsvValue(value: unknown): string {
   return str
 }
 
-export function exportToCsv(filename: string, columns: ExportColumn[], rows: Record<string, unknown>[]) {
-  const header = columns.map((c) => escapeCsvValue(c.label)).join(',')
-  const lines = rows.map((row) => columns.map((c) => escapeCsvValue(row[c.key])).join(','))
-  const csv = [header, ...lines].join('\r\n')
-
+function downloadCsv(filename: string, csv: string) {
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -25,4 +21,27 @@ export function exportToCsv(filename: string, columns: ExportColumn[], rows: Rec
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+export function exportToCsv(filename: string, columns: ExportColumn[], rows: Record<string, unknown>[]) {
+  const header = columns.map((c) => escapeCsvValue(c.label)).join(',')
+  const lines = rows.map((row) => columns.map((c) => escapeCsvValue(row[c.key])).join(','))
+  downloadCsv(filename, [header, ...lines].join('\r\n'))
+}
+
+export interface CsvSection {
+  heading?: string
+  columns: ExportColumn[]
+  rows: Record<string, unknown>[]
+}
+
+export function exportSectionsToCsv(filename: string, sections: CsvSection[]) {
+  const blocks = sections.map((section) => {
+    const lines: string[] = []
+    if (section.heading) lines.push(escapeCsvValue(section.heading))
+    lines.push(section.columns.map((c) => escapeCsvValue(c.label)).join(','))
+    section.rows.forEach((row) => lines.push(section.columns.map((c) => escapeCsvValue(row[c.key])).join(',')))
+    return lines.join('\r\n')
+  })
+  downloadCsv(filename, blocks.join('\r\n\r\n'))
 }

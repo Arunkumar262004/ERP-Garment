@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { api } from '../../api/client'
-import type { ProductionOrder } from '../../types'
+import type { Contact, Paginated, ProductionOrder, Size } from '../../types'
+import ProcessItemsTable, { type ProcessItemsTableHandle } from '../../components/production/ProcessItemsTable'
+import { sanitizeNonNegativeInput } from '../../lib/validation'
+import { useToast } from '../../components/ToastProvider'
 
 const STAGE_LABELS: Record<string, string> = {
   dyeing: 'Dyeing',
@@ -25,6 +28,9 @@ export default function ProcessEditPage() {
   const { orderId, processId } = useParams<{ orderId: string; processId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const itemsTableRef = useRef<ProcessItemsTableHandle>(null)
+  const [saving, setSaving] = useState(false)
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['production-order', orderId],
@@ -36,23 +42,49 @@ export default function ProcessEditPage() {
     queryFn: async () => (await api.get<AssigneeOption[]>('/users')).data,
   })
 
+  const { data: sizes } = useQuery({
+    queryKey: ['sizes'],
+    queryFn: async () => (await api.get<Paginated<Size>>('/sizes', { params: { status: 'active' } })).data.data,
+  })
+
   const process = order?.processes?.find((p) => String(p.id) === processId)
+
+  const { data: categoryEmployees } = useQuery({
+    queryKey: ['employees-by-category', process?.process_type],
+    queryFn: async () =>
+      (
+        await api.get<Paginated<Contact>>('/contacts', {
+          params: { type: 'employee', category: process!.process_type, status: 'active', per_page: 100 },
+        })
+      ).data.data,
+    enabled: !!process,
+  })
+
+  const orderedProcesses = [...(order?.processes ?? [])].sort((a, b) => a.sequence - b.sequence)
+  const previousProcess = process
+    ? [...orderedProcesses].reverse().find((p) => p.sequence < process.sequence)
+    : undefined
 
   const [form, setForm] = useState({
     assigned_to: '',
+    assigned_employee_id: '',
     quantity_completed: 0,
     start_date: '',
     end_date: '',
+    due_date: '',
     remarks: '',
   })
+  const [employeeError, setEmployeeError] = useState<string | null>(null)
 
   useEffect(() => {
     if (process) {
       setForm({
         assigned_to: process.assigned_to ? String(process.assigned_to) : '',
+        assigned_employee_id: process.assigned_employee_id ? String(process.assigned_employee_id) : '',
         quantity_completed: process.quantity_completed,
         start_date: process.start_date?.slice(0, 10) ?? '',
         end_date: process.end_date?.slice(0, 10) ?? '',
+        due_date: process.due_date?.slice(0, 10) ?? '',
         remarks: process.remarks ?? '',
       })
     }
@@ -62,20 +94,52 @@ export default function ProcessEditPage() {
     mutationFn: () =>
       api.put(`/production-processes/${processId}`, {
         assigned_to: form.assigned_to || null,
+        assigned_employee_id: form.assigned_employee_id || null,
         quantity_completed: Number(form.quantity_completed),
         start_date: form.start_date || null,
         end_date: form.end_date || null,
+        due_date: form.due_date || null,
         remarks: form.remarks,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-processes'] })
       queryClient.invalidateQueries({ queryKey: ['production-process-stage-counts'] })
       queryClient.invalidateQueries({ queryKey: ['production-order', orderId] })
-      navigate(process ? `/production/stage/${process.process_type}` : '/production')
     },
+    onError: () => showToast('Could not save process details', 'error'),
   })
 
   const backTo = process ? `/production/stage/${process.process_type}` : '/production'
+
+  const handleSaveAll = async () => {
+    if (!form.assigned_employee_id) {
+      setEmployeeError(
+        (categoryEmployees ?? []).length === 0
+          ? 'No employees are set up for this category yet — add one first.'
+          : 'Please assign an employee before saving.'
+      )
+      return
+    }
+    setEmployeeError(null)
+    setSaving(true)
+    try {
+      const [processOk, itemsOk] = await Promise.all([
+        saveMutation
+          .mutateAsync()
+          .then(() => true)
+          .catch(() => false),
+        itemsTableRef.current ? itemsTableRef.current.save() : Promise.resolve(true),
+      ])
+      if (processOk && itemsOk) {
+        showToast('Saved', 'success')
+        navigate(process ? `/production/stage/${process.process_type}` : '/production')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isOverdue = !!(process?.due_date && process.status !== 'completed' && new Date(process.due_date.slice(0, 10)) < new Date(new Date().toDateString()))
 
   return (
     <div>
@@ -93,67 +157,156 @@ export default function ProcessEditPage() {
       {isLoading && <p className="text-slate-400">Loading…</p>}
       {!isLoading && !process && <p className="text-slate-400">Process not found.</p>}
 
-      {process && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            saveMutation.mutate()
-          }}
-          className="max-w-2xl space-y-4 rounded-xl border border-slate-200 bg-white p-5"
-        >
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Assigned To</label>
-            <select
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={form.assigned_to}
-              onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-            >
-              <option value="">Unassigned</option>
-              {(users ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Quantity Completed</label>
-            <input
-              type="number"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={form.quantity_completed}
-              onChange={(e) => setForm({ ...form, quantity_completed: Number(e.target.value) })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Start Date</label>
-              <input
-                type="date"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={form.start_date}
-                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">End Date</label>
-              <input
-                type="date"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={form.end_date}
-                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-              />
+      {process && order && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Process Summary</p>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-slate-400">Order No</p>
+                <p className="text-sm font-medium text-slate-700">{order.order_no}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Customer</p>
+                <p className="text-sm font-medium text-slate-700">{order.contact?.name ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Stage</p>
+                <p className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  {previousProcess ? (STAGE_LABELS[previousProcess.process_type] ?? previousProcess.process_type) : 'Order Created'}
+                  <ArrowRight size={13} className="text-slate-400" />
+                  <span className="text-brand-700">{STAGE_LABELS[process.process_type] ?? process.process_type}</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Stage Changed On</p>
+                <p className="text-sm font-medium text-slate-700">
+                  {process.start_date ? process.start_date.slice(0, 10) : 'Not started yet'}
+                </p>
+              </div>
             </div>
           </div>
+
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="lg:col-span-1">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Assigned Employee — {STAGE_LABELS[process.process_type] ?? process.process_type} team
+                  <span className="text-red-500"> *</span>
+                </label>
+                <select
+                  required
+                  className={`w-full rounded-md border px-3 py-2 text-sm ${employeeError ? 'border-red-400' : 'border-slate-300'}`}
+                  value={form.assigned_employee_id}
+                  onChange={(e) => {
+                    setForm({ ...form, assigned_employee_id: e.target.value })
+                    if (e.target.value) setEmployeeError(null)
+                  }}
+                >
+                  <option value="">Select…</option>
+                  {(categoryEmployees ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.designation ? ` — ${c.designation}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {employeeError ? (
+                  <p className="mt-1 text-xs text-red-600">{employeeError}</p>
+                ) : (
+                  (categoryEmployees ?? []).length === 0 && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      No employees are set up for this category yet —{' '}
+                      <Link to="/contacts/employees" className="font-medium text-brand-600 hover:underline">
+                        add one under Contacts → Employees
+                      </Link>
+                      .
+                    </p>
+                  )
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Assigned To (System User)</label>
+                <select
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={form.assigned_to}
+                  onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                >
+                  <option value="">Unassigned</option>
+                  {(users ?? []).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Quantity Completed</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={form.quantity_completed}
+                  onChange={(e) => setForm({ ...form, quantity_completed: Number(sanitizeNonNegativeInput(e.target.value)) })}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Start Date</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={form.start_date}
+                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">End Date</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={form.end_date}
+                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Due Date {isOverdue && <span className="text-red-500">(overdue)</span>}
+                </label>
+                <input
+                  type="date"
+                  className={`w-full rounded-md border px-3 py-2 text-sm ${isOverdue ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
+                  value={form.due_date}
+                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Remarks</label>
+              <textarea
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                rows={3}
+                value={form.remarks}
+                onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Remarks</label>
-            <textarea
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              rows={3}
-              value={form.remarks}
-              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+            <p className="mb-1 text-sm font-semibold text-slate-700">Item / Product Details</p>
+            <p className="mb-3 text-xs text-slate-500">
+              SKU, garment type, GSM, cut weight, size, color and HSN code for every item on this order — shared
+              across all stages, so updates here apply everywhere this order appears.
+            </p>
+            <ProcessItemsTable
+              ref={itemsTableRef}
+              orderId={orderId!}
+              processId={processId!}
+              allOrderItems={order.items ?? []}
+              importedItems={process.items ?? []}
+              sizes={sizes ?? []}
             />
           </div>
+
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <Link
               to={backTo}
@@ -162,14 +315,15 @@ export default function ProcessEditPage() {
               Cancel
             </Link>
             <button
-              type="submit"
-              disabled={saveMutation.isPending}
+              type="button"
+              onClick={handleSaveAll}
+              disabled={saving}
               className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
-              {saveMutation.isPending ? 'Saving…' : 'Save'}
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
-        </form>
+        </div>
       )}
     </div>
   )

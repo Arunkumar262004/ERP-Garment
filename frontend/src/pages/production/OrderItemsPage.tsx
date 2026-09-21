@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Package } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Paginated, Product, ProductionOrder, ProductionOrderItem, Size } from '../../types'
 import { useToast } from '../../components/ToastProvider'
+import ItemDetailsCard from '../../components/production/ItemDetailsCard'
 
 function PushToInventoryForm({
   order,
@@ -170,8 +171,6 @@ export default function OrderItemsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const focusPush = searchParams.get('focus') === 'push'
-  const [items, setItems] = useState<ProductionOrderItem[]>([])
-  const [savingId, setSavingId] = useState<number | null>(null)
   const queryClient = useQueryClient()
 
   const { data: order, isLoading } = useQuery({
@@ -184,34 +183,10 @@ export default function OrderItemsPage() {
     queryFn: async () => (await api.get<Paginated<Size>>('/sizes', { params: { status: 'active' } })).data.data,
   })
 
-  useEffect(() => {
-    if (order) setItems(order.items ?? [])
-  }, [order])
-
-  const updateField = (itemId: number, field: keyof ProductionOrderItem, value: string) => {
-    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)))
-  }
-
-  const saveItem = async (item: ProductionOrderItem) => {
-    if (!item.id) return
-    setSavingId(item.id)
-    try {
-      await api.put(`/production-orders/${id}/items/${item.id}`, {
-        sku: item.sku || undefined,
-        garment_type: item.garment_type || undefined,
-        gsm: item.gsm ? Number(item.gsm) : undefined,
-        cutting_weight_kg: item.cutting_weight_kg ? Number(item.cutting_weight_kg) : undefined,
-        size_id: item.size_id || undefined,
-        color: item.color || undefined,
-        hsn_code: item.hsn_code || undefined,
-        details: item.details || undefined,
-      })
-      queryClient.invalidateQueries({ queryKey: ['production-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['production-order', id] })
-      queryClient.invalidateQueries({ queryKey: ['production-processes'] })
-    } finally {
-      setSavingId(null)
-    }
+  const invalidateAfterItemSave = () => {
+    queryClient.invalidateQueries({ queryKey: ['production-orders'] })
+    queryClient.invalidateQueries({ queryKey: ['production-order', id] })
+    queryClient.invalidateQueries({ queryKey: ['production-processes'] })
   }
 
   return (
@@ -243,116 +218,16 @@ export default function OrderItemsPage() {
       {isLoading && <p className="text-slate-400">Loading…</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="mb-3 text-sm font-medium text-slate-700">
-                {item.item_name}{' '}
-                <span className="text-slate-400">
-                  ({item.quantity} {item.unit})
-                </span>
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">SKU</label>
-                  <input
-                    type="text"
-                    placeholder="Auto-generated if blank"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.sku ?? ''}
-                    onChange={(e) => updateField(item.id!, 'sku', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">Garment Type</label>
-                  <input
-                    type="text"
-                    placeholder="T-Shirt, Shirt, Trouser…"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.garment_type ?? ''}
-                    onChange={(e) => updateField(item.id!, 'garment_type', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">GSM</label>
-                  <input
-                    type="number"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.gsm ?? ''}
-                    onChange={(e) => updateField(item.id!, 'gsm', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">Cut Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.cutting_weight_kg ?? ''}
-                    onChange={(e) => updateField(item.id!, 'cutting_weight_kg', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">
-                    Size {!item.size_id && <span className="text-amber-600">(not set)</span>}
-                  </label>
-                  <select
-                    className={`w-full rounded-md border px-2 py-1.5 text-sm ${
-                      item.size_id ? 'border-slate-300' : 'border-amber-300 bg-amber-50'
-                    }`}
-                    value={item.size_id ?? ''}
-                    onChange={(e) => updateField(item.id!, 'size_id', e.target.value)}
-                  >
-                    <option value="">Select…</option>
-                    {(sizes ?? []).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">Color</label>
-                  <input
-                    type="text"
-                    placeholder="Dye color used…"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.color ?? ''}
-                    onChange={(e) => updateField(item.id!, 'color', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">HSN Code</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 6109"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.hsn_code ?? ''}
-                    onChange={(e) => updateField(item.id!, 'hsn_code', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">Details</label>
-                  <input
-                    type="text"
-                    placeholder="Fit, print, notes…"
-                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    value={item.details ?? ''}
-                    onChange={(e) => updateField(item.id!, 'details', e.target.value)}
-                  />
-                </div>
+        {(order?.items ?? []).map((item) => (
+          <div key={item.id} className="space-y-3">
+            <ItemDetailsCard orderId={id!} item={item} sizes={sizes ?? []} onSaved={invalidateAfterItemSave} />
+            {order && (
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <PushToInventoryForm order={order} item={item} autoOpen={focusPush} />
               </div>
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={() => saveItem(item)}
-                  disabled={savingId === item.id}
-                  className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-                >
-                  {savingId === item.id ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-              {order && <PushToInventoryForm order={order} item={item} autoOpen={focusPush} />}
-            </div>
-          ))}
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

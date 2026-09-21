@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '../../api/client'
-import type { Brand, Contact, Paginated, ProductionOrder, RawMaterial } from '../../types'
+import type { Brand, Contact, Invoice, Paginated, ProductionOrder, Quotation, RawMaterial } from '../../types'
 import ItemsEditor from '../../components/ItemsEditor'
+import { validateLineItems } from '../../lib/validation'
 
 const STATUS_OPTIONS = ['pending', 'in_production', 'completed', 'delivered', 'cancelled']
 
 interface ProductionOrderFormState {
   contact_id: string
+  quotation_id: string
+  invoice_id: string
   order_date: string
   expected_delivery_date: string
   status: string
@@ -23,6 +26,8 @@ interface ProductionOrderFormState {
 function emptyForm(): ProductionOrderFormState {
   return {
     contact_id: '',
+    quotation_id: '',
+    invoice_id: '',
     order_date: new Date().toISOString().slice(0, 10),
     expected_delivery_date: '',
     status: 'pending',
@@ -36,15 +41,31 @@ function emptyForm(): ProductionOrderFormState {
 
 export default function ProductionOrderFormPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const fromQuotationParam = searchParams.get('from_quotation')
+  const fromInvoiceParam = searchParams.get('from_invoice')
   const isEditing = !!id
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(emptyForm())
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { data: editing } = useQuery({
     queryKey: ['production-order', id],
     queryFn: async () => (await api.get<ProductionOrder>(`/production-orders/${id}`)).data,
     enabled: isEditing,
+  })
+
+  const { data: quotationSource } = useQuery({
+    queryKey: ['quotation', fromQuotationParam],
+    queryFn: async () => (await api.get<Quotation>(`/quotations/${fromQuotationParam}`)).data,
+    enabled: !isEditing && !!fromQuotationParam,
+  })
+
+  const { data: invoiceSource } = useQuery({
+    queryKey: ['invoice', fromInvoiceParam],
+    queryFn: async () => (await api.get<Invoice>(`/invoices/${fromInvoiceParam}`)).data,
+    enabled: !isEditing && !!fromInvoiceParam,
   })
 
   const { data: contacts } = useQuery({
@@ -68,6 +89,8 @@ export default function ProductionOrderFormPage() {
     if (editing) {
       setForm({
         contact_id: String(editing.contact_id),
+        quotation_id: editing.quotation_id ? String(editing.quotation_id) : '',
+        invoice_id: editing.invoice_id ? String(editing.invoice_id) : '',
         order_date: editing.order_date.slice(0, 10),
         expected_delivery_date: editing.expected_delivery_date?.slice(0, 10) ?? '',
         status: editing.status,
@@ -82,10 +105,51 @@ export default function ProductionOrderFormPage() {
     }
   }, [editing])
 
+  useEffect(() => {
+    if (quotationSource && !isEditing) {
+      setForm((prev) => ({
+        ...prev,
+        contact_id: String(quotationSource.contact_id),
+        quotation_id: String(quotationSource.id),
+        notes: prev.notes || `From quotation ${quotationSource.quotation_no}.`,
+        items: quotationSource.items?.length
+          ? quotationSource.items.map((i) => ({
+              item_name: i.description,
+              description: '',
+              quantity: i.quantity,
+              unit: i.unit ?? 'pcs',
+            }))
+          : prev.items,
+      }))
+    }
+  }, [quotationSource, isEditing])
+
+  useEffect(() => {
+    if (invoiceSource && !isEditing) {
+      setForm((prev) => ({
+        ...prev,
+        contact_id: String(invoiceSource.contact_id),
+        invoice_id: String(invoiceSource.id),
+        quotation_id: invoiceSource.quotation_id ? String(invoiceSource.quotation_id) : prev.quotation_id,
+        notes: prev.notes || `From invoice ${invoiceSource.invoice_no}.`,
+        items: invoiceSource.items?.length
+          ? invoiceSource.items.map((i) => ({
+              item_name: i.description,
+              description: '',
+              quantity: i.quantity,
+              unit: i.unit ?? 'pcs',
+            }))
+          : prev.items,
+      }))
+    }
+  }, [invoiceSource, isEditing])
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
         contact_id: form.contact_id,
+        quotation_id: form.quotation_id || null,
+        invoice_id: form.invoice_id || null,
         order_date: form.order_date,
         expected_delivery_date: form.expected_delivery_date || null,
         status: form.status,
@@ -129,17 +193,32 @@ export default function ProductionOrderFormPage() {
 
       <div className="mb-4">
         <h2 className="text-xl font-bold text-slate-800">
-          {isEditing ? `Edit Production Order${editing ? ` — ${editing.order_no}` : ''}` : 'New Production Order'}
+          {isEditing
+            ? `Edit Production Order${editing ? ` — ${editing.order_no}` : ''}`
+            : quotationSource
+              ? `New Production Order — from ${quotationSource.quotation_no}`
+              : invoiceSource
+                ? `New Production Order — from ${invoiceSource.invoice_no}`
+                : 'New Production Order'}
         </h2>
       </div>
 
       <form
         onSubmit={(e) => {
           e.preventDefault()
+          const error = validateLineItems(form.items) ?? validateLineItems(form.materials)
+          if (error) {
+            setFormError(error)
+            return
+          }
+          setFormError(null)
           saveMutation.mutate()
         }}
         className="space-y-6 rounded-xl border border-slate-200 bg-white p-5"
       >
+        {formError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+        )}
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             1. Customer &amp; Delivery

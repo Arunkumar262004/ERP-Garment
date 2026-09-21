@@ -80,12 +80,22 @@ class ProductionOrderController extends Controller
                 $order->items()->create($item);
             }
 
+            $itemIds = $order->items()->pluck('id');
+
             foreach (array_values($processTypes) as $index => $processType) {
-                $order->processes()->create([
+                $process = $order->processes()->create([
                     'process_type' => $processType,
                     'sequence' => $index + 1,
                     'status' => 'pending',
                 ]);
+
+                // Snapshot every item that exists on the order at creation time —
+                // only items added later count as "missed" for this process.
+                if ($itemIds->isNotEmpty()) {
+                    $process->items()->syncWithoutDetaching(
+                        $itemIds->mapWithKeys(fn ($id) => [$id => ['imported_at' => now()]])
+                    );
+                }
             }
 
             foreach ($materials as $material) {
@@ -109,7 +119,7 @@ class ProductionOrderController extends Controller
     public function show(ProductionOrder $productionOrder)
     {
         return $productionOrder->load([
-            'contact', 'brand', 'items.size', 'items.variant', 'processes.assignee',
+            'contact', 'brand', 'items.size', 'items.variant', 'processes.assignee', 'processes.employee', 'processes.items',
             'quotation', 'invoice', 'deliveries', 'materials.rawMaterial',
         ]);
     }

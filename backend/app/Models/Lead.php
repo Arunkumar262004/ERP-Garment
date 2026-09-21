@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'lead_no', 'contact_id', 'name', 'company_name', 'email', 'phone', 'source',
-    'status', 'expected_value', 'expected_close_date', 'assigned_to', 'notes', 'created_by',
+    'status', 'expected_value', 'expected_close_date', 'follow_up_date', 'assigned_to', 'notes', 'created_by',
 ])]
 class Lead extends Model
 {
@@ -21,6 +21,7 @@ class Lead extends Model
         return [
             'expected_value' => 'decimal:2',
             'expected_close_date' => 'date',
+            'follow_up_date' => 'date',
         ];
     }
 
@@ -42,5 +43,10 @@ class Lead extends Model
     public function quotations(): HasMany
     {
         return $this->hasMany(Quotation::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(LeadItem::class);
     }
 }

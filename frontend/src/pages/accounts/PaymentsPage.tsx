@@ -7,7 +7,7 @@ const config: ResourceConfig<Payment> = {
   title: 'Payment',
   endpoint: '/payments',
   queryKey: 'payments',
-  allowEdit: false,
+  allowEdit: true,
   columns: [
     { key: 'invoice', label: 'Invoice', render: (row) => row.invoice?.invoice_no ?? '—' },
     { key: 'amount', label: 'Amount', render: (row) => `₹${Number(row.amount).toLocaleString('en-IN')}` },

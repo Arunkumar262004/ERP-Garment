@@ -38,6 +38,11 @@ return [
     'n8n' => [
         'quotation_webhook_url' => env('N8N_QUOTATION_WEBHOOK_URL'),
         'webhook_secret' => env('N8N_WEBHOOK_SECRET'),
+        'chat_webhook_url' => env('N8N_CHAT_WEBHOOK_URL'),
+    ],
+
+    'lead_capture' => [
+        'secret' => env('LEAD_CAPTURE_SECRET'),
     ],
 
 ];
