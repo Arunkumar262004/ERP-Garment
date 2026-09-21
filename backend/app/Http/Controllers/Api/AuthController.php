@@ -58,6 +58,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($request->user()->id)],
+            'phone' => ['nullable', 'digits:10'],
         ]);
 
         $request->user()->update($data);

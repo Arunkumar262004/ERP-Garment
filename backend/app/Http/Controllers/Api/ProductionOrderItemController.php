@@ -26,6 +26,8 @@ class ProductionOrderItemController extends Controller
             'sku' => ['nullable', 'string', 'max:100', $skuUnique],
             'garment_type' => ['nullable', 'string', 'max:100'],
             'gsm' => ['nullable', 'integer', 'min:0'],
+            'dia' => ['nullable', 'numeric', 'min:0'],
+            'counts' => ['nullable', 'string', 'max:30'],
             'cutting_weight_kg' => ['nullable', 'numeric', 'min:0'],
             'size_id' => ['nullable', 'exists:sizes,id'],
             'color' => ['nullable', 'string', 'max:50'],

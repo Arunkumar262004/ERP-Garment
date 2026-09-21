@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'production_order_id', 'item_name', 'description', 'quantity', 'unit',
-    'sku', 'garment_type', 'gsm', 'cutting_weight_kg', 'size_id', 'color', 'hsn_code', 'details',
+    'sku', 'garment_type', 'gsm', 'dia', 'counts', 'cutting_weight_kg', 'size_id', 'color', 'hsn_code', 'details',
 ])]
 class ProductionOrderItem extends Model
 {
@@ -18,6 +18,7 @@ class ProductionOrderItem extends Model
         return [
             'quantity' => 'decimal:2',
             'cutting_weight_kg' => 'decimal:2',
+            'dia' => 'decimal:2',
         ];
     }
 

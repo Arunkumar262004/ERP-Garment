@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ProductionOrderCreated;
 use App\Http\Controllers\Controller;
 use App\Models\ProductionOrder;
+use App\Models\ProductionProcess;
 use App\Models\RawMaterial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductionOrderController extends Controller
 {
-    protected const PROCESS_TYPES = 'cutting,dyeing,stitching,printing,packing,quality_check,other';
-
     public function index(Request $request)
     {
         $query = ProductionOrder::with(['contact', 'brand', 'processes']);
@@ -52,7 +52,7 @@ class ProductionOrderController extends Controller
             'materials.*.raw_material_id' => ['required', 'exists:raw_materials,id'],
             'materials.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'processes' => ['nullable', 'array'],
-            'processes.*' => ['string', 'in:'.self::PROCESS_TYPES],
+            'processes.*' => ['string', 'in:'.implode(',', ProductionProcess::PROCESS_TYPES)],
         ]);
 
         $totalQuantity = array_sum(array_column($data['items'], 'quantity'));
@@ -112,6 +112,8 @@ class ProductionOrderController extends Controller
 
             return $order;
         });
+
+        event(new ProductionOrderCreated($order));
 
         return response()->json($order->load(['contact', 'brand', 'items.size', 'processes', 'materials.rawMaterial']), 201);
     }

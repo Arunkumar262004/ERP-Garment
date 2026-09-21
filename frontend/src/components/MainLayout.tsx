@@ -60,7 +60,7 @@ export default function MainLayout() {
       <Sidebar collapsed={collapsed} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar title={title} onToggleSidebar={() => setCollapsed((c) => !c)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-24">
           <Outlet />
         </main>
       </div>

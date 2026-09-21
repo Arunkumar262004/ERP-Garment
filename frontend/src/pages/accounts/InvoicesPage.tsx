@@ -1,16 +1,22 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { Download, Pencil, Shirt, Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Download, Pencil, Shirt, Trash2, Zap } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Invoice, Paginated } from '../../types'
 import { exportToPdf } from '../../lib/exportPdf'
 import Badge from '../../components/Badge'
 import ActionButton from '../../components/ActionButton'
+import Modal from '../../components/Modal'
+import { useToast } from '../../components/ToastProvider'
 
 export default function InvoicesPage() {
   const [page, setPage] = useState(1)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [quickOptionOpen, setQuickOptionOpen] = useState(false)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { showToast } = useToast()
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', page],
@@ -54,9 +60,59 @@ export default function InvoicesPage() {
     })
   }
 
+  const rows = data?.data ?? []
+  const allSelected = rows.length > 0 && rows.every((r) => selectedIds.includes(r.id))
+  const toggleAll = () => setSelectedIds(allSelected ? [] : rows.map((r) => r.id))
+  const toggleOne = (id: number) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+
+  // The invoices LIST doesn't eager-load `items` — fetch each full invoice
+  // before creating from it, same fix as InvoiceFormPage's applyQuotation.
+  const bulkCreateProductionOrdersMutation = useMutation({
+    mutationFn: () =>
+      Promise.all(
+        selectedIds.map(async (id) => {
+          const full = (await api.get<Invoice>(`/invoices/${id}`)).data
+          return api.post('/production-orders', {
+            contact_id: full.contact_id,
+            invoice_id: full.id,
+            quotation_id: full.quotation_id ?? undefined,
+            order_date: new Date().toISOString().slice(0, 10),
+            notes: `From invoice ${full.invoice_no}.`,
+            items: (full.items ?? []).map((i) => ({
+              item_name: i.description,
+              description: '',
+              quantity: i.quantity,
+              unit: i.unit ?? 'pcs',
+            })),
+          })
+        })
+      ),
+    onSuccess: () => {
+      showToast(`Created ${selectedIds.length} production order${selectedIds.length > 1 ? 's' : ''}`, 'success')
+      setSelectedIds([])
+      setQuickOptionOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['production-orders'] })
+      navigate('/production/orders')
+    },
+    onError: () => showToast('Could not create production orders', 'error'),
+  })
+
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <button
+          onClick={() => {
+            if (selectedIds.length === 0) {
+              showToast('Please select at least one invoice', 'error')
+              return
+            }
+            setQuickOptionOpen(true)
+          }}
+          className="flex items-center gap-1.5 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100"
+        >
+          <Zap size={15} /> Quick Option{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+        </button>
         <Link
           to="/accounts/invoices/new"
           className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
@@ -69,6 +125,9 @@ export default function InvoicesPage() {
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs font-medium text-slate-500">
             <tr>
+              <th className="w-8 px-4 py-3">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+              </th>
               <th className="px-4 py-3">Invoice No</th>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Total</th>
@@ -80,13 +139,16 @@ export default function InvoicesPage() {
           <tbody className="divide-y divide-slate-100">
             {isLoading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                   Loading…
                 </td>
               </tr>
             )}
             {data?.data.map((inv) => (
               <tr key={inv.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3">
+                  <input type="checkbox" checked={selectedIds.includes(inv.id)} onChange={() => toggleOne(inv.id)} />
+                </td>
                 <td className="px-4 py-3 font-medium text-slate-700">{inv.invoice_no}</td>
                 <td className="px-4 py-3">{inv.contact?.name}</td>
                 <td className="px-4 py-3">₹{Number(inv.total).toLocaleString('en-IN')}</td>
@@ -102,13 +164,6 @@ export default function InvoicesPage() {
                       variant="neutral"
                       title="Download invoice as PDF"
                       onClick={() => downloadInvoice(inv)}
-                    />
-                    <ActionButton
-                      icon={Shirt}
-                      label="Create Production Order"
-                      variant="success"
-                      title="Create a production order pre-filled from this invoice"
-                      to={`/production/orders/new?from_invoice=${inv.id}`}
                     />
                     <ActionButton icon={Pencil} label="Edit" variant="edit" to={`/accounts/invoices/${inv.id}/edit`} />
                     <ActionButton
@@ -142,6 +197,27 @@ export default function InvoicesPage() {
             Next
           </button>
         </div>
+      )}
+
+      {quickOptionOpen && (
+        <Modal title={`Quick Option — ${selectedIds.length} invoice(s) selected`} onClose={() => setQuickOptionOpen(false)}>
+          <div className="space-y-3">
+            <button
+              onClick={() => bulkCreateProductionOrdersMutation.mutate()}
+              disabled={bulkCreateProductionOrdersMutation.isPending}
+              className="flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50 disabled:opacity-50"
+            >
+              <Shirt size={18} className="shrink-0 text-brand-600" />
+              <span>
+                <span className="block text-sm font-medium text-slate-800">Create Production Orders</span>
+                <span className="block text-xs text-slate-500">
+                  Creates one production order per selected invoice, pre-filled with its customer and line items.
+                </span>
+              </span>
+            </button>
+            {bulkCreateProductionOrdersMutation.isPending && <p className="text-center text-xs text-slate-400">Working…</p>}
+          </div>
+        </Modal>
       )}
     </div>
   )

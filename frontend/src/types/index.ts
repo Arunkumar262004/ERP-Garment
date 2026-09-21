@@ -9,6 +9,7 @@ export interface User {
   id: number
   name: string
   email: string
+  phone?: string | null
   role: 'admin' | 'sales' | 'accounts' | 'production' | 'purchase' | 'crm' | 'viewer'
   role_id?: number | null
   assigned_role?: Role | null
@@ -242,6 +243,8 @@ export interface ProductionOrderItem {
   sku?: string | null
   garment_type?: string | null
   gsm?: number | null
+  dia?: number | null
+  counts?: string | null
   cutting_weight_kg?: number | null
   size_id?: number | null
   size?: Size | null

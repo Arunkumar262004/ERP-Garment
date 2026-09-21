@@ -49,4 +49,15 @@ class Contact extends Model
     {
         return $this->hasMany(ProductionOrder::class);
     }
+
+    /**
+     * The sales user who owns this customer — whoever the most recent lead
+     * that converted into (or otherwise links to) this contact was assigned
+     * to. Used to route WhatsApp/email updates about this customer's orders,
+     * quotations and invoices back to the rep who's been working the lead.
+     */
+    public function salesOwner(): ?User
+    {
+        return $this->leads()->whereNotNull('assigned_to')->latest()->first()?->assignee;
+    }
 }

@@ -45,4 +45,13 @@ return [
         'secret' => env('LEAD_CAPTURE_SECRET'),
     ],
 
+    'admin_notifications' => [
+        'email' => env('ADMIN_NOTIFICATION_EMAIL'),
+    ],
+
+    'wasender' => [
+        'token' => env('WASENDER_API_TOKEN'),
+        'api_url' => env('WASENDER_API_URL', 'https://api.wasender.dev/messages/text'),
+    ],
+
 ];

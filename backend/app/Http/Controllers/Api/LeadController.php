@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\LeadCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
 use App\Models\Lead;
@@ -80,6 +81,8 @@ class LeadController extends Controller
 
             return $lead;
         });
+
+        event(new LeadCreated($lead));
 
         return response()->json($lead->load(['contact', 'assignee', 'items']), 201);
     }
@@ -232,12 +235,16 @@ class LeadController extends Controller
         $data['follow_up_date'] = now()->addDays(2)->toDateString();
         $data['created_by'] = $createdBy;
 
-        return DB::transaction(function () use ($data) {
+        $lead = DB::transaction(function () use ($data) {
             $lead = Lead::create($data);
             $lead->update(['lead_no' => sprintf('LEAD-%05d', $lead->id)]);
 
             return $lead;
         });
+
+        event(new LeadCreated($lead));
+
+        return $lead;
     }
 
     /**
@@ -268,5 +275,24 @@ class LeadController extends Controller
         $lead = $this->captureLead($data, null);
 
         return response()->json($lead->load(['contact', 'assignee']), 201);
+    }
+
+    /**
+     * Public inquiry form — no login, no shared secret, so a browser-facing
+     * "Contact us" page on the website can post directly to it. Unlike
+     * publicCapture() (a server-to-server webhook gated by a secret header
+     * that can't safely be embedded in client-side JS), this is meant to be
+     * hit straight from an anonymous visitor's browser, so it's rate-limited
+     * instead (see the `throttle` middleware on its route) and returns only a
+     * plain confirmation message, never the created lead's internal data.
+     */
+    public function publicInquiry(Request $request)
+    {
+        $data = $request->validate($this->quickCaptureRules());
+        $this->captureLead($data, null);
+
+        return response()->json([
+            'message' => "Thanks — we've received your enquiry and will be in touch shortly.",
+        ], 201);
     }
 }

@@ -10,7 +10,7 @@ five pieces with a different trigger point.
 
 ```
 QuotationController::approve()
-   → DB::transaction(update status=accepted, stamp approval_event_id)
+   → DB::transaction(update status=approved, stamp approval_event_id)
    → event(new QuotationApproved($quotation))      [ShouldDispatchAfterCommit]
         ↓ (fires only after the transaction commits, two listeners run)
         │
@@ -19,7 +19,7 @@ QuotationController::approve()
         │      → N8nService::send()                 [HTTP POST, never throws]
         │      → n8n Webhook node
         │           → IF: secret valid
-        │           → IF: status == "accepted"
+        │           → IF: status == "approved"
         │           → Code: prepare notification data
         │           → (your fan-out: Slack / Sheets / CRM / SMS)
         │
@@ -110,7 +110,7 @@ n8n's Webhook node exposes the incoming request headers as `{{$json.headers}}`.
 ### 4.4 Add the status IF node
 
 1. Add a second **IF** node (after the secret check passes).
-2. Condition: `{{$json.body.status}}` **equals** `accepted` (that's the actual enum value this ERP uses for "approved" — see the payload shape below).
+2. Condition: `{{$json.body.status}}` **equals** `approved` (see the payload shape below).
 
 ### 4.5 Add the Code node (prepare notification data)
 
@@ -144,15 +144,13 @@ need to know it exists.
   "quotation_id": 1025,
   "customer_name": "ABC Garments",
   "total_amount": 125000,
-  "status": "accepted"
+  "status": "approved"
 }
 ```
 
 Header: `X-N8N-Webhook-Secret: <your secret>`
 
-(Note: this ERP's status enum is `draft/sent/accepted/rejected/expired` — there
-is no literal `"approved"` value. "Approved" is the business name for the
-`accepted` status; the IF node above checks for `accepted`.)
+(This ERP's quotation status enum is `draft/sent/approved/rejected/expired`.)
 
 ### 4.7 Testing the webhook
 
@@ -222,7 +220,7 @@ POST http://localhost:8000/api/quotations/1/approve
 Authorization: Bearer <token>
 ```
 
-Expect: `200 OK` with the quotation JSON, `status: "accepted"`. Check your
+Expect: `200 OK` with the quotation JSON, `status: "approved"`. Check your
 `queue:work` terminal (or n8n's Executions tab) for the webhook delivery.
 
 **Connectivity test (no real quotation needed):**
@@ -245,7 +243,7 @@ for the underlying reason (this is intentionally not exposed in the API response
 | n8n shows a 401 in its execution log | Secret header mismatch | Confirm `N8N_WEBHOOK_SECRET` matches what the IF node compares against |
 | Webhook works in n8n's Test URL but not in production | Workflow not **Active**, or still pointing at the Test URL | Activate the workflow, switch env to the Production URL |
 | Approval request itself fails with a 500 | This should not happen — webhook delivery failures are caught inside `N8nService` and never propagate. If it does, it's a bug — check the stack trace, it's not n8n-related | File it as a real bug, not an n8n outage |
-| Duplicate webhooks for one approval | Shouldn't happen — `approve()` is a no-op on an already-accepted quotation. If seen, check for retried client requests racing before the first `update()` commits | n8n workflows should still dedupe by `event_id` defensively |
+| Duplicate webhooks for one approval | Shouldn't happen — `approve()` is a no-op on an already-approved quotation. If seen, check for retried client requests racing before the first `update()` commits | n8n workflows should still dedupe by `event_id` defensively |
 
 ## 8. Security considerations
 

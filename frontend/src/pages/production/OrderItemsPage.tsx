@@ -203,9 +203,8 @@ export default function OrderItemsPage() {
           Item Details{order ? ` — ${order.order_no}` : ''}
         </h2>
         <p className="text-sm text-slate-500">
-          {order?.contact?.name}. Record SKU, garment type, GSM, cut weight (kg), size, color and HSN code per item —
-          this data carries through every stage of the pipeline, so you can fill or fix it here regardless of what
-          stage the order is currently at. Once an item is packed, push it into Inventory for retail sale.
+          {order?.contact?.name}. Record the retail SKU, size and color per item. Once an item is packed, push it
+          into Inventory for retail sale.
         </p>
         {focusPush && (
           <p className="mt-2 rounded-md bg-brand-50 px-3 py-2 text-xs text-brand-700">

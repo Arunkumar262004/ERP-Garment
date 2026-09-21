@@ -8,6 +8,7 @@ import { useToast } from '../../components/ToastProvider'
 import Badge from '../../components/Badge'
 import ActionButton from '../../components/ActionButton'
 import Modal from '../../components/Modal'
+import { sanitizePhoneInput } from '../../lib/validation'
 
 const ROLE_OPTIONS = ['admin', 'sales', 'accounts', 'production', 'purchase', 'crm', 'viewer']
 
@@ -21,6 +22,7 @@ const SPECIALIZATION_OPTIONS = [
 interface UserFormState {
   name: string
   email: string
+  phone: string
   password: string
   role: string
   role_id: string
@@ -29,7 +31,7 @@ interface UserFormState {
 }
 
 function emptyForm(): UserFormState {
-  return { name: '', email: '', password: '', role: 'sales', role_id: '', specialization: '', is_active: true }
+  return { name: '', email: '', phone: '', password: '', role: 'sales', role_id: '', specialization: '', is_active: true }
 }
 
 export default function UsersPage() {
@@ -125,6 +127,7 @@ export default function UsersPage() {
     setForm({
       name: row.name,
       email: row.email,
+      phone: row.phone ?? '',
       password: '',
       role: row.role,
       role_id: row.role_id ? String(row.role_id) : '',
@@ -145,6 +148,7 @@ export default function UsersPage() {
       const values: Partial<UserFormState> = {
         name: payload.name,
         email: payload.email,
+        phone: payload.phone,
         role: payload.role,
         role_id: payload.role_id,
         specialization: payload.specialization,
@@ -334,6 +338,17 @@ export default function UsersPage() {
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Phone (for WhatsApp updates)</label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: sanitizePhoneInput(e.target.value) })}
                 />
               </div>
               <div className="col-span-2">

@@ -30,13 +30,8 @@ export default function ItemDetailsCard({
     try {
       await api.put(`/production-orders/${orderId}/items/${form.id}`, {
         sku: form.sku || undefined,
-        garment_type: form.garment_type || undefined,
-        gsm: form.gsm ? Number(form.gsm) : undefined,
-        cutting_weight_kg: form.cutting_weight_kg ? Number(form.cutting_weight_kg) : undefined,
         size_id: form.size_id || undefined,
         color: form.color || undefined,
-        hsn_code: form.hsn_code || undefined,
-        details: form.details || undefined,
       })
       onSaved?.()
     } finally {
@@ -52,7 +47,7 @@ export default function ItemDetailsCard({
           ({form.quantity} {form.unit})
         </span>
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500">SKU</label>
           <input
@@ -61,35 +56,6 @@ export default function ItemDetailsCard({
             className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             value={form.sku ?? ''}
             onChange={(e) => updateField('sku', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Garment Type</label>
-          <input
-            type="text"
-            placeholder="T-Shirt, Shirt, Trouser…"
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-            value={form.garment_type ?? ''}
-            onChange={(e) => updateField('garment_type', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">GSM</label>
-          <input
-            type="number"
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-            value={form.gsm ?? ''}
-            onChange={(e) => updateField('gsm', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Cut Weight (kg)</label>
-          <input
-            type="number"
-            step="0.01"
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-            value={form.cutting_weight_kg ?? ''}
-            onChange={(e) => updateField('cutting_weight_kg', e.target.value)}
           />
         </div>
         <div>
@@ -115,30 +81,10 @@ export default function ItemDetailsCard({
           <label className="mb-1 block text-xs font-medium text-slate-500">Color</label>
           <input
             type="text"
-            placeholder="Dye color used…"
+            placeholder="Retail color…"
             className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             value={form.color ?? ''}
             onChange={(e) => updateField('color', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">HSN Code</label>
-          <input
-            type="text"
-            placeholder="e.g. 6109"
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-            value={form.hsn_code ?? ''}
-            onChange={(e) => updateField('hsn_code', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Details</label>
-          <input
-            type="text"
-            placeholder="Fit, print, notes…"
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-            value={form.details ?? ''}
-            onChange={(e) => updateField('details', e.target.value)}
           />
         </div>
       </div>

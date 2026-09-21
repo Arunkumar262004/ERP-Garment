@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import MainLayout from './components/MainLayout'
 import LoginPage from './pages/LoginPage'
+import InquiryPage from './pages/public/InquiryPage'
 import DashboardPage from './pages/DashboardPage'
 import ContactsPage from './pages/contacts/ContactsPage'
 import LeadsPage from './pages/crm/LeadsPage'
@@ -36,6 +37,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/inquiry" element={<InquiryPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>

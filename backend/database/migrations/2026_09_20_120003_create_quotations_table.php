@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('lead_id')->nullable()->constrained('leads')->nullOnDelete();
             $table->date('quotation_date');
             $table->date('valid_until')->nullable();
-            $table->enum('status', ['draft', 'sent', 'accepted', 'rejected', 'expired'])->default('draft');
+            $table->enum('status', ['draft', 'sent', 'approved', 'rejected', 'expired'])->default('draft');
             $table->decimal('subtotal', 14, 2)->default(0);
             $table->decimal('discount', 14, 2)->default(0);
             $table->decimal('tax', 14, 2)->default(0);

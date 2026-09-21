@@ -5,6 +5,7 @@ import type { User } from '../types'
 import { useAuth } from '../auth/AuthContext'
 import { useToast } from '../components/ToastProvider'
 import Badge from '../components/Badge'
+import { sanitizePhoneInput } from '../lib/validation'
 
 interface ApiErrorResponse {
   response?: {
@@ -26,7 +27,11 @@ export default function ProfilePage() {
   const { user, updateUser } = useAuth()
   const { showToast } = useToast()
 
-  const [profileForm, setProfileForm] = useState({ name: user?.name ?? '', email: user?.email ?? '' })
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    phone: user?.phone ?? '',
+  })
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
     new_password: '',
@@ -82,6 +87,17 @@ export default function ProfilePage() {
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               value={profileForm.email}
               onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Phone (for WhatsApp updates)</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              value={profileForm.phone}
+              onChange={(e) => setProfileForm({ ...profileForm, phone: sanitizePhoneInput(e.target.value) })}
             />
           </div>
           <div>

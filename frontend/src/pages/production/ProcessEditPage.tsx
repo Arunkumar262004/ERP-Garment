@@ -1,15 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Contact, Paginated, ProductionOrder, Size } from '../../types'
-import ProcessItemsTable, { type ProcessItemsTableHandle } from '../../components/production/ProcessItemsTable'
 import { sanitizeNonNegativeInput } from '../../lib/validation'
 import { useToast } from '../../components/ToastProvider'
+import LoadingOverlay from '../../components/LoadingOverlay'
+
+interface ItemFormValue {
+  item_name: string
+  quantity: number
+  sku: string
+  size_id: number | null
+  color: string
+  gsm: string
+  dia: string
+  counts: string
+}
 
 const STAGE_LABELS: Record<string, string> = {
+  knitting: 'Knitting',
   dyeing: 'Dyeing',
+  compacting: 'Compacting',
   printing: 'Printing',
   cutting: 'Cutting',
   stitching: 'Stitching',
@@ -17,6 +30,8 @@ const STAGE_LABELS: Record<string, string> = {
   quality_check: 'Quality Check',
   other: 'Other',
 }
+
+const FABRIC_FIELD_STAGES = ['dyeing', 'printing', 'compacting']
 
 interface AssigneeOption {
   id: number
@@ -29,7 +44,6 @@ export default function ProcessEditPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const itemsTableRef = useRef<ProcessItemsTableHandle>(null)
   const [saving, setSaving] = useState(false)
 
   const { data: order, isLoading } = useQuery({
@@ -48,6 +62,14 @@ export default function ProcessEditPage() {
   })
 
   const process = order?.processes?.find((p) => String(p.id) === processId)
+
+  useEffect(() => {
+    if (process && process.status === 'completed') {
+      showToast('This stage is already completed and locked', 'error')
+      navigate(`/production/stage/${process.process_type}`, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [process?.id, process?.status])
 
   const { data: categoryEmployees } = useQuery({
     queryKey: ['employees-by-category', process?.process_type],
@@ -75,6 +97,8 @@ export default function ProcessEditPage() {
     remarks: '',
   })
   const [employeeError, setEmployeeError] = useState<string | null>(null)
+  const [dueDateError, setDueDateError] = useState<string | null>(null)
+  const [itemsForm, setItemsForm] = useState<Record<number, ItemFormValue>>({})
 
   useEffect(() => {
     if (process) {
@@ -89,6 +113,28 @@ export default function ProcessEditPage() {
       })
     }
   }, [process])
+
+  useEffect(() => {
+    if (order?.items) {
+      setItemsForm(
+        Object.fromEntries(
+          order.items.map((item) => [
+            item.id!,
+            {
+              item_name: item.item_name,
+              quantity: item.quantity,
+              sku: item.sku ?? '',
+              size_id: item.size_id ?? null,
+              color: item.color ?? '',
+              gsm: item.gsm != null ? String(item.gsm) : '',
+              dia: item.dia != null ? String(item.dia) : '',
+              counts: item.counts ?? '',
+            },
+          ])
+        )
+      )
+    }
+  }, [order])
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -112,37 +158,64 @@ export default function ProcessEditPage() {
   const backTo = process ? `/production/stage/${process.process_type}` : '/production'
 
   const handleSaveAll = async () => {
+    let blocked = false
+
     if (!form.assigned_employee_id) {
       setEmployeeError(
         (categoryEmployees ?? []).length === 0
           ? 'No employees are set up for this category yet — add one first.'
           : 'Please assign an employee before saving.'
       )
-      return
+      blocked = true
+    } else {
+      setEmployeeError(null)
     }
-    setEmployeeError(null)
+
+    if (!form.due_date) {
+      setDueDateError('Please set a due date before saving.')
+      blocked = true
+    } else {
+      setDueDateError(null)
+    }
+
+    if (blocked) return
+
     setSaving(true)
     try {
-      const [processOk, itemsOk] = await Promise.all([
-        saveMutation
-          .mutateAsync()
-          .then(() => true)
-          .catch(() => false),
-        itemsTableRef.current ? itemsTableRef.current.save() : Promise.resolve(true),
+      await Promise.all([
+        saveMutation.mutateAsync(),
+        ...Object.entries(itemsForm).map(([itemId, values]) =>
+          api.put(`/production-orders/${orderId}/items/${itemId}`, {
+            item_name: values.item_name,
+            quantity: Number(values.quantity),
+            sku: values.sku || undefined,
+            size_id: values.size_id || undefined,
+            color: values.color || undefined,
+            gsm: values.gsm !== '' ? Number(values.gsm) : null,
+            dia: values.dia !== '' ? Number(values.dia) : null,
+            counts: values.counts || undefined,
+          })
+        ),
       ])
-      if (processOk && itemsOk) {
-        showToast('Saved', 'success')
-        navigate(process ? `/production/stage/${process.process_type}` : '/production')
-      }
+      queryClient.invalidateQueries({ queryKey: ['production-order', orderId] })
+      queryClient.invalidateQueries({ queryKey: ['production-orders'] })
+      showToast('Saved', 'success')
+      navigate(process ? `/production/stage/${process.process_type}` : '/production')
+    } catch {
+      showToast('Could not save changes', 'error')
     } finally {
       setSaving(false)
     }
   }
 
   const isOverdue = !!(process?.due_date && process.status !== 'completed' && new Date(process.due_date.slice(0, 10)) < new Date(new Date().toDateString()))
+  const showFabricFields = !!process && FABRIC_FIELD_STAGES.includes(process.process_type)
+  const isCutting = process?.process_type === 'cutting'
 
   return (
     <div>
+      {saving && <LoadingOverlay message="Saving…" />}
+
       <Link to={backTo} className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <ArrowLeft size={15} /> Back
       </Link>
@@ -156,8 +229,9 @@ export default function ProcessEditPage() {
 
       {isLoading && <p className="text-slate-400">Loading…</p>}
       {!isLoading && !process && <p className="text-slate-400">Process not found.</p>}
+      {process && process.status === 'completed' && <p className="text-slate-400">This stage is completed and locked — redirecting…</p>}
 
-      {process && order && (
+      {process && order && process.status !== 'completed' && (
         <div className="space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Process Summary</p>
@@ -241,7 +315,9 @@ export default function ProcessEditPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Quantity Completed</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  {isCutting ? 'Cut Pcs Qty' : 'Quantity Completed'}
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -270,14 +346,21 @@ export default function ProcessEditPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Due Date {isOverdue && <span className="text-red-500">(overdue)</span>}
+                  Due Date<span className="text-red-500"> *</span>{' '}
+                  {isOverdue && <span className="text-red-500">(overdue)</span>}
                 </label>
                 <input
                   type="date"
-                  className={`w-full rounded-md border px-3 py-2 text-sm ${isOverdue ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
+                  className={`w-full rounded-md border px-3 py-2 text-sm ${
+                    dueDateError || isOverdue ? 'border-red-400 bg-red-50' : 'border-slate-300'
+                  }`}
                   value={form.due_date}
-                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, due_date: e.target.value })
+                    if (e.target.value) setDueDateError(null)
+                  }}
                 />
+                {dueDateError && <p className="mt-1 text-xs text-red-600">{dueDateError}</p>}
               </div>
             </div>
             <div>
@@ -291,20 +374,136 @@ export default function ProcessEditPage() {
             </div>
           </div>
 
-          <div>
-            <p className="mb-1 text-sm font-semibold text-slate-700">Item / Product Details</p>
-            <p className="mb-3 text-xs text-slate-500">
-              SKU, garment type, GSM, cut weight, size, color and HSN code for every item on this order — shared
-              across all stages, so updates here apply everywhere this order appears.
-            </p>
-            <ProcessItemsTable
-              ref={itemsTableRef}
-              orderId={orderId!}
-              processId={processId!}
-              allOrderItems={order.items ?? []}
-              importedItems={process.items ?? []}
-              sizes={sizes ?? []}
-            />
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Order Items</p>
+            <p className="mb-3 text-xs text-slate-400">Changes here save together with the Save button below.</p>
+            <div className="overflow-x-auto rounded-md border border-slate-200">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs font-medium text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Item Name</th>
+                    <th className="px-3 py-2 text-left font-medium">Qty</th>
+                    <th className="px-3 py-2 text-left font-medium">SKU</th>
+                    <th className="px-3 py-2 text-left font-medium">Size</th>
+                    <th className="px-3 py-2 text-left font-medium">Color</th>
+                    {showFabricFields && (
+                      <>
+                        <th className="px-3 py-2 text-left font-medium">GSM</th>
+                        <th className="px-3 py-2 text-left font-medium">Dia</th>
+                        <th className="px-3 py-2 text-left font-medium">Counts</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(order.items ?? []).map((item) => {
+                    const values =
+                      itemsForm[item.id!] ??
+                      ({
+                        item_name: item.item_name,
+                        quantity: item.quantity,
+                        sku: '',
+                        size_id: null,
+                        color: '',
+                        gsm: '',
+                        dia: '',
+                        counts: '',
+                      } as ItemFormValue)
+                    const update = (patch: Partial<ItemFormValue>) =>
+                      setItemsForm((prev) => ({ ...prev, [item.id!]: { ...values, ...patch } }))
+                    return (
+                      <tr key={item.id}>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            className="w-full min-w-[160px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                            value={values.item_name}
+                            onChange={(e) => update({ item_name: e.target.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min={0}
+                            className="w-full min-w-[100px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                            value={values.quantity}
+                            onChange={(e) => update({ quantity: Number(sanitizeNonNegativeInput(e.target.value)) })}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            placeholder="Auto if blank"
+                            className="w-full min-w-[100px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                            value={values.sku}
+                            onChange={(e) => update({ sku: e.target.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            className="w-full min-w-[140px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                            value={values.size_id ?? ''}
+                            onChange={(e) => update({ size_id: e.target.value ? Number(e.target.value) : null })}
+                          >
+                            <option value="">Select…</option>
+                            {(sizes ?? []).map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            className="w-full min-w-[100px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                            value={values.color}
+                            onChange={(e) => update({ color: e.target.value })}
+                          />
+                        </td>
+                        {showFabricFields && (
+                          <>
+                            <td className="px-3 py-2">
+                              <input
+                                type="number"
+                                min={0}
+                                className="w-full min-w-[80px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                                value={values.gsm}
+                                onChange={(e) => update({ gsm: sanitizeNonNegativeInput(e.target.value) })}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="number"
+                                min={0}
+                                className="w-full min-w-[80px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                                value={values.dia}
+                                onChange={(e) => update({ dia: sanitizeNonNegativeInput(e.target.value) })}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                className="w-full min-w-[100px] rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                                value={values.counts}
+                                onChange={(e) => update({ counts: e.target.value })}
+                              />
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    )
+                  })}
+                  {(order.items ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={showFabricFields ? 8 : 5} className="px-3 py-2 text-slate-400">
+                        No items on this order.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">

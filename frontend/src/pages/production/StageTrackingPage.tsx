@@ -11,9 +11,12 @@ import { exportToCsv, type ExportColumn } from '../../lib/exportCsv'
 import { exportToPdf } from '../../lib/exportPdf'
 import MoveStageModal from '../../components/production/MoveStageModal'
 import { useToast } from '../../components/ToastProvider'
+import LoadingOverlay from '../../components/LoadingOverlay'
 
 const STAGE_LABELS: Record<string, string> = {
+  knitting: 'Knitting',
   dyeing: 'Dyeing',
+  compacting: 'Compacting',
   printing: 'Printing',
   cutting: 'Cutting',
   stitching: 'Stitching',
@@ -21,7 +24,7 @@ const STAGE_LABELS: Record<string, string> = {
   quality_check: 'Quality Check',
 }
 
-const TARGET_STAGES = ['dyeing', 'printing', 'cutting', 'stitching', 'packing', 'quality_check']
+const TARGET_STAGES = ['knitting', 'dyeing', 'compacting', 'printing', 'cutting', 'stitching', 'packing', 'quality_check']
 const STATUS_OPTIONS = ['pending', 'in_progress', 'completed', 'skipped']
 const ACTIVE_STATUSES = ['pending', 'in_progress']
 
@@ -114,6 +117,12 @@ export default function StageTrackingPage() {
         navigate(`/production/stage/${target}`)
       }
     },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Could not move the selected order(s) — please check their status.'
+      showToast(message, 'error')
+    },
   })
 
   const rows = status === '' ? (data?.data ?? []).filter((r) => ACTIVE_STATUSES.includes(r.status)) : data?.data ?? []
@@ -146,6 +155,9 @@ export default function StageTrackingPage() {
 
   return (
     <div>
+      {markDeliveredMutation.isPending && <LoadingOverlay message="Converting to Delivery…" />}
+      {bulkMoveMutation.isPending && <LoadingOverlay message="Moving selected order(s)…" />}
+
       <div className="mb-3 flex items-center justify-between">
         <Link to="/production" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
           <ArrowLeft size={15} /> Back
@@ -235,8 +247,10 @@ export default function StageTrackingPage() {
                 <td className="px-3 py-2">
                   <select
                     value={proc.status}
+                    disabled={proc.status === 'completed'}
+                    title={proc.status === 'completed' ? 'Completed stages are locked' : undefined}
                     onChange={(e) => updateMutation.mutate({ id: proc.id, status: e.target.value })}
-                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s} value={s}>
@@ -251,8 +265,9 @@ export default function StageTrackingPage() {
                       icon={Pencil}
                       label="Edit"
                       variant="edit"
-                      title="Edit process, due date and item details"
+                      title={proc.status === 'completed' ? 'Completed stages are locked' : 'Edit process, due date and item details'}
                       to={`/production/orders/${proc.production_order_id}/processes/${proc.id}/edit`}
+                      disabled={proc.status === 'completed'}
                     />
                     {proc.status === 'completed' && (
                       <ActionButton

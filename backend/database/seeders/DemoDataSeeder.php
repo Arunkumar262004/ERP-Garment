@@ -276,7 +276,7 @@ class DemoDataSeeder extends Seeder
 
     protected function seedQuotations(array $contactIds, array $leadIds, array $userIds): array
     {
-        $statuses = ['draft', 'sent', 'accepted', 'rejected', 'expired'];
+        $statuses = ['draft', 'sent', 'approved', 'rejected', 'expired'];
         $ids = [];
 
         for ($i = 0; $i < 10; $i++) {

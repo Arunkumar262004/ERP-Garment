@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\InvoiceCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\ProductVariant;
@@ -109,6 +110,8 @@ class InvoiceController extends Controller
 
             return $invoice;
         });
+
+        event(new InvoiceCreated($invoice));
 
         return response()->json($invoice->load(['contact', 'items.productVariant']), 201);
     }

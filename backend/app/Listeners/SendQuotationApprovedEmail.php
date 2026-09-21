@@ -4,11 +4,13 @@ namespace App\Listeners;
 
 use App\Events\QuotationApproved;
 use App\Mail\QuotationApprovedMail;
+use App\Services\MailService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class SendQuotationApprovedEmail
 {
+    public function __construct(protected MailService $mail) {}
+
     public function handle(QuotationApproved $event): void
     {
         $quotation = $event->quotation->loadMissing('contact');
@@ -22,6 +24,6 @@ class SendQuotationApprovedEmail
             return;
         }
 
-        Mail::to($email)->send(new QuotationApprovedMail($quotation));
+        $this->mail->send($email, new QuotationApprovedMail($quotation));
     }
 }

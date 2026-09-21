@@ -35,6 +35,12 @@ Route::post('/login', [AuthController::class, 'login']);
 // the auth:sanctum group so an external site or n8n can post directly.
 Route::post('/public/leads', [LeadController::class, 'publicCapture']);
 
+// Genuinely public inquiry form — no login, no secret header (unlike
+// /public/leads above, this is meant to be called straight from an anonymous
+// browser, so a secret would be visible in the client bundle). Rate-limited
+// instead to deter abuse.
+Route::post('/public/inquiries', [LeadController::class, 'publicInquiry'])->middleware('throttle:10,1');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);

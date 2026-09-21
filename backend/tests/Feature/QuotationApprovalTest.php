@@ -48,7 +48,7 @@ class QuotationApprovalTest extends TestCase
         $response->assertOk();
 
         $quotation->refresh();
-        $this->assertSame('accepted', $quotation->status);
+        $this->assertSame('approved', $quotation->status);
         $this->assertNotNull($quotation->approved_at);
         $this->assertNotNull($quotation->approval_event_id);
     }
@@ -77,7 +77,7 @@ class QuotationApprovalTest extends TestCase
                 && $request['quotation_id'] === $quotation->id
                 && $request['customer_name'] === 'ABC Garments'
                 && (float) $request['total_amount'] === 125000.0
-                && $request['status'] === 'accepted';
+                && $request['status'] === 'approved';
         });
     }
 
@@ -112,13 +112,13 @@ class QuotationApprovalTest extends TestCase
         Mail::assertNothingQueued();
     }
 
-    public function test_approving_an_already_accepted_quotation_does_not_dispatch_a_duplicate_webhook(): void
+    public function test_approving_an_already_approved_quotation_does_not_dispatch_a_duplicate_webhook(): void
     {
         Queue::fake();
 
         $user = User::factory()->create();
         $quotation = $this->createQuotation([
-            'status' => 'accepted',
+            'status' => 'approved',
             'approved_at' => now(),
             'approval_event_id' => (string) Str::uuid(),
         ]);
@@ -144,7 +144,7 @@ class QuotationApprovalTest extends TestCase
         $response = $this->postJson("/api/quotations/{$quotation->id}/approve");
 
         $response->assertOk();
-        $this->assertSame('accepted', $quotation->fresh()->status);
+        $this->assertSame('approved', $quotation->fresh()->status);
     }
 
     public function test_approve_endpoint_requires_authentication(): void

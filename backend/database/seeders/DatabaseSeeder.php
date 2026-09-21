@@ -94,7 +94,7 @@ class DatabaseSeeder extends Seeder
         // Accounts: Quotation -> Invoice -> Payment
         $quotation = Quotation::create([
             'contact_id' => $b2b->id, 'lead_id' => $lead->id, 'quotation_date' => now()->subDays(5),
-            'valid_until' => now()->addDays(25), 'status' => 'accepted',
+            'valid_until' => now()->addDays(25), 'status' => 'approved',
             'subtotal' => 100000, 'discount' => 0, 'tax' => 18000, 'total' => 118000,
             'created_by' => $sales->id,
         ]);

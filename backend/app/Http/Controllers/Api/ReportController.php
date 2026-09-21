@@ -27,10 +27,42 @@ class ReportController extends Controller
         return $query;
     }
 
+    /**
+     * Partial match on the request's `order_no` param against whichever
+     * "number" column this report's primary record uses (order_no, po_no,
+     * invoice_no, quotation_no, lead_no, delivery_no — the field the report
+     * table actually shows as its first column).
+     */
+    protected function orderNoFilter(Request $request, $query, string $column)
+    {
+        if ($request->filled('order_no')) {
+            $query->where($column, 'like', '%'.$request->string('order_no').'%');
+        }
+
+        return $query;
+    }
+
+    /**
+     * Partial match on the request's `customer` param against the given
+     * relation's `name` column (contact or supplier — whichever party this
+     * report's records belong to).
+     */
+    protected function customerFilter(Request $request, $query, string $relation = 'contact')
+    {
+        if ($request->filled('customer')) {
+            $customer = $request->string('customer');
+            $query->whereHas($relation, fn ($q) => $q->where('name', 'like', "%{$customer}%"));
+        }
+
+        return $query;
+    }
+
     public function orders(Request $request)
     {
         $query = ProductionOrder::with(['contact', 'processes']);
         $this->dateFilter($request, $query, 'order_date');
+        $this->orderNoFilter($request, $query, 'order_no');
+        $this->customerFilter($request, $query);
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -64,10 +96,14 @@ class ReportController extends Controller
 
         $invoiceQuery = Invoice::whereIn('contact_id', $contactIds);
         $this->dateFilter($request, $invoiceQuery, 'invoice_date');
+        $this->orderNoFilter($request, $invoiceQuery, 'invoice_no');
+        $this->customerFilter($request, $invoiceQuery);
         $invoices = $invoiceQuery->get();
 
         $quotationQuery = Quotation::whereIn('contact_id', $contactIds);
         $this->dateFilter($request, $quotationQuery, 'quotation_date');
+        $this->orderNoFilter($request, $quotationQuery, 'quotation_no');
+        $this->customerFilter($request, $quotationQuery);
         $quotations = $quotationQuery->get();
 
         return response()->json([
@@ -77,7 +113,7 @@ class ReportController extends Controller
                 'total_collected' => (float) $invoices->sum('paid_amount'),
                 'total_outstanding' => (float) $invoices->sum('balance_amount'),
                 'total_quotations' => $quotations->count(),
-                'quotations_accepted' => $quotations->where('status', 'accepted')->count(),
+                'quotations_approved' => $quotations->where('status', 'approved')->count(),
             ],
             'invoices' => $invoices->load('contact'),
             'quotations' => $quotations->load('contact'),
@@ -88,6 +124,8 @@ class ReportController extends Controller
     {
         $query = ProductionOrder::with(['contact', 'processes']);
         $this->dateFilter($request, $query, 'order_date');
+        $this->orderNoFilter($request, $query, 'order_no');
+        $this->customerFilter($request, $query);
         $orders = $query->latest()->get();
 
         $processStats = $orders->flatMap->processes->groupBy('process_type')->map(function ($group) {
@@ -113,6 +151,8 @@ class ReportController extends Controller
     {
         $query = PurchaseOrder::with(['supplier', 'items.rawMaterial']);
         $this->dateFilter($request, $query, 'order_date');
+        $this->orderNoFilter($request, $query, 'po_no');
+        $this->customerFilter($request, $query, 'supplier');
         $orders = $query->latest()->get();
 
         return response()->json([
@@ -130,10 +170,14 @@ class ReportController extends Controller
     {
         $invoiceQuery = Invoice::with('contact');
         $this->dateFilter($request, $invoiceQuery, 'invoice_date');
+        $this->orderNoFilter($request, $invoiceQuery, 'invoice_no');
+        $this->customerFilter($request, $invoiceQuery);
         $invoices = $invoiceQuery->get();
 
         $quotationQuery = Quotation::with('contact');
         $this->dateFilter($request, $quotationQuery, 'quotation_date');
+        $this->orderNoFilter($request, $quotationQuery, 'quotation_no');
+        $this->customerFilter($request, $quotationQuery);
         $quotations = $quotationQuery->get();
 
         return response()->json([
@@ -154,6 +198,15 @@ class ReportController extends Controller
     {
         $leadQuery = Lead::query();
         $this->dateFilter($request, $leadQuery, 'created_at');
+        $this->orderNoFilter($request, $leadQuery, 'lead_no');
+
+        if ($request->filled('customer')) {
+            $customer = $request->string('customer');
+            $leadQuery->where(function ($q) use ($customer) {
+                $q->where('name', 'like', "%{$customer}%")->orWhere('company_name', 'like', "%{$customer}%");
+            });
+        }
+
         $leads = $leadQuery->get();
 
         $tasks = CrmTask::with('lead')->get();
@@ -177,6 +230,16 @@ class ReportController extends Controller
     {
         $query = Delivery::with(['contact', 'productionOrder']);
         $this->dateFilter($request, $query, 'delivery_date');
+        $this->customerFilter($request, $query);
+
+        if ($request->filled('order_no')) {
+            $orderNo = $request->string('order_no');
+            $query->where(function ($q) use ($orderNo) {
+                $q->where('delivery_no', 'like', "%{$orderNo}%")
+                    ->orWhereHas('productionOrder', fn ($q2) => $q2->where('order_no', 'like', "%{$orderNo}%"));
+            });
+        }
+
         $deliveries = $query->latest()->get();
 
         return response()->json([

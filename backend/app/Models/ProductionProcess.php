@@ -9,10 +9,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable([
     'production_order_id', 'process_type', 'sequence', 'status', 'assigned_to', 'assigned_employee_id',
-    'quantity_completed', 'start_date', 'end_date', 'due_date', 'remarks',
+    'quantity_completed', 'start_date', 'end_date', 'due_date', 'due_reminder_sent_at', 'remarks',
 ])]
 class ProductionProcess extends Model
 {
+    /**
+     * Canonical pipeline stage order — the single source of truth for both
+     * controllers' validation rules (`ProductionOrderController`,
+     * `ProductionProcessController`). `other` stays last as the catch-all.
+     *
+     * There is deliberately no "dc" (delivery challan) stage here — that
+     * turned out to mean job-work paperwork, which was tried and removed —
+     * production tracking here is driven purely by each process's own
+     * status/quantity fields.
+     */
+    public const PROCESS_TYPES = [
+        'knitting', 'dyeing', 'compacting', 'printing', 'cutting', 'stitching', 'packing', 'quality_check', 'other',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -20,6 +34,7 @@ class ProductionProcess extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'due_date' => 'date',
+            'due_reminder_sent_at' => 'datetime',
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\QuotationApproved;
+use App\Events\QuotationCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Quotation;
 use Illuminate\Http\Request;
@@ -83,7 +84,7 @@ class QuotationController extends Controller
             'lead_id' => ['nullable', 'exists:leads,id'],
             'quotation_date' => ['required', 'date'],
             'valid_until' => ['nullable', 'date'],
-            'status' => ['nullable', 'in:draft,sent,accepted,rejected,expired'],
+            'status' => ['nullable', 'in:draft,sent,approved,rejected,expired'],
             'notes' => ['nullable', 'string'],
         ], $this->itemRules()));
 
@@ -110,6 +111,8 @@ class QuotationController extends Controller
             return $quotation;
         });
 
+        event(new QuotationCreated($quotation));
+
         return response()->json($quotation->load(['contact', 'items']), 201);
     }
 
@@ -121,19 +124,19 @@ class QuotationController extends Controller
     /**
      * Approve a quotation and notify downstream automations (n8n).
      *
-     * Idempotent: re-approving an already-accepted quotation is a no-op and
+     * Idempotent: re-approving an already-approved quotation is a no-op and
      * does not re-dispatch the automation event, so retried/duplicate calls
      * from the client never produce duplicate webhooks.
      */
     public function approve(Quotation $quotation)
     {
-        if ($quotation->status === 'accepted') {
+        if ($quotation->status === 'approved') {
             return $quotation->load('contact');
         }
 
         $quotation = DB::transaction(function () use ($quotation) {
             $quotation->update([
-                'status' => 'accepted',
+                'status' => 'approved',
                 'approved_at' => now(),
                 'approval_event_id' => (string) Str::uuid(),
             ]);
@@ -153,7 +156,7 @@ class QuotationController extends Controller
             'lead_id' => ['nullable', 'exists:leads,id'],
             'quotation_date' => ['sometimes', 'date'],
             'valid_until' => ['nullable', 'date'],
-            'status' => ['nullable', 'in:draft,sent,accepted,rejected,expired'],
+            'status' => ['nullable', 'in:draft,sent,approved,rejected,expired'],
             'notes' => ['nullable', 'string'],
             'items' => ['sometimes', 'array', 'min:1'],
             'items.*.description' => ['required_with:items', 'string', 'max:255'],

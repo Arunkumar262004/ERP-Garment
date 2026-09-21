@@ -7,7 +7,7 @@ import type { Contact, Lead, Paginated, Quotation } from '../../types'
 import ItemsEditor from '../../components/ItemsEditor'
 import { validateLineItems } from '../../lib/validation'
 
-const STATUS_OPTIONS = ['draft', 'sent', 'accepted', 'rejected', 'expired']
+const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'rejected', 'expired']
 
 const emptyItem = { description: '', quantity: 1, unit: 'pcs', unit_price: 0, discount: 0, tax_percent: 18 }
 

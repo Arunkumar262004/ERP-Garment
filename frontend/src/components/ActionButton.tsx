@@ -32,6 +32,15 @@ export default function ActionButton({
 }: ActionButtonProps) {
   const className = `inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_STYLES[variant]}`
 
+  if (to && disabled) {
+    return (
+      <span title={title} className={`${className} cursor-not-allowed opacity-50`}>
+        <Icon size={13} />
+        {label}
+      </span>
+    )
+  }
+
   if (to) {
     return (
       <Link to={to} title={title} className={className}>

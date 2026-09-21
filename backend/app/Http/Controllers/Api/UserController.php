@@ -47,6 +47,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['nullable', 'digits:10'],
             'password' => ['required', 'string', 'min:8'],
             'role' => ['required', 'in:admin,sales,accounts,production,purchase,crm,viewer'],
             'role_id' => ['nullable', 'exists:roles,id'],
@@ -75,6 +76,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'phone' => ['nullable', 'digits:10'],
             'password' => ['nullable', 'string', 'min:8'],
             'role' => ['sometimes', 'in:admin,sales,accounts,production,purchase,crm,viewer'],
             'role_id' => ['nullable', 'exists:roles,id'],

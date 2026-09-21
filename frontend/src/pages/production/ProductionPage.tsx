@@ -5,10 +5,12 @@ import {
   CheckCircle2,
   ClipboardList,
   Droplets,
+  Layers,
   Package,
   Printer,
   Scissors,
   Shirt,
+  Wind,
   type LucideIcon,
 } from 'lucide-react'
 import { api } from '../../api/client'
@@ -21,7 +23,9 @@ import type { Paginated, ProcessStageCount, ProductionOrder } from '../../types'
 // every tile still carries its label in plain dark ink so identity never
 // depends on the hue alone.
 const STAGE_META: { type: string; label: string; icon: LucideIcon; hue: string }[] = [
+  { type: 'knitting', label: 'Knitting', icon: Layers, hue: '#7c5cff' },
   { type: 'dyeing', label: 'Dyeing', icon: Droplets, hue: '#2a78d6' },
+  { type: 'compacting', label: 'Compacting', icon: Wind, hue: '#14b8a6' },
   { type: 'printing', label: 'Printing', icon: Printer, hue: '#eb6834' },
   { type: 'cutting', label: 'Cutting', icon: Scissors, hue: '#1baf7a' },
   { type: 'stitching', label: 'Stitching', icon: Shirt, hue: '#eda100' },

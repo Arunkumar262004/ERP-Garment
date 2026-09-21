@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
+use App\Models\ProductionProcess;
 use Illuminate\Http\Request;
 
 class ContactController extends Controller
@@ -58,7 +59,7 @@ class ContactController extends Controller
             'employee_code' => ['nullable', 'string', 'max:50'],
             'designation' => ['nullable', 'string', 'max:100'],
             'department' => ['nullable', 'string', 'max:100'],
-            'category' => ['nullable', 'in:cutting,dyeing,stitching,printing,packing,quality_check,other'],
+            'category' => ['nullable', 'in:'.implode(',', ProductionProcess::PROCESS_TYPES)],
             'date_of_joining' => ['nullable', 'date'],
             'status' => ['nullable', 'in:active,inactive'],
             'notes' => ['nullable', 'string'],
@@ -98,7 +99,7 @@ class ContactController extends Controller
             'employee_code' => ['nullable', 'string', 'max:50'],
             'designation' => ['nullable', 'string', 'max:100'],
             'department' => ['nullable', 'string', 'max:100'],
-            'category' => ['nullable', 'in:cutting,dyeing,stitching,printing,packing,quality_check,other'],
+            'category' => ['nullable', 'in:'.implode(',', ProductionProcess::PROCESS_TYPES)],
             'date_of_joining' => ['nullable', 'date'],
             'status' => ['nullable', 'in:active,inactive'],
             'notes' => ['nullable', 'string'],

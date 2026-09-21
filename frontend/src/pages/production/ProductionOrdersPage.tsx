@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, ListChecks, Pencil, Trash2, Zap } from 'lucide-react'
+import { ArrowLeft, Download, Pencil, Trash2, Zap } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Paginated, ProductionOrder } from '../../types'
 import { exportToPdf } from '../../lib/exportPdf'
@@ -9,10 +9,13 @@ import Badge from '../../components/Badge'
 import ActionButton from '../../components/ActionButton'
 import MoveStageModal from '../../components/production/MoveStageModal'
 import { useToast } from '../../components/ToastProvider'
+import LoadingOverlay from '../../components/LoadingOverlay'
 
-const STAGE_ORDER = ['dyeing', 'printing', 'cutting', 'stitching', 'packing', 'quality_check']
+const STAGE_ORDER = ['knitting', 'dyeing', 'compacting', 'printing', 'cutting', 'stitching', 'packing', 'quality_check']
 const STAGE_LABELS: Record<string, string> = {
+  knitting: 'Knitting',
   dyeing: 'Dyeing',
+  compacting: 'Compacting',
   printing: 'Printing',
   cutting: 'Cutting',
   stitching: 'Stitching',
@@ -64,6 +67,12 @@ export default function ProductionOrdersPage() {
       } else {
         navigate(`/production/stage/${target}`)
       }
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Could not move the selected order(s) — please check their status.'
+      showToast(message, 'error')
     },
   })
 
@@ -121,6 +130,8 @@ export default function ProductionOrdersPage() {
 
   return (
     <div>
+      {bulkMoveMutation.isPending && <LoadingOverlay message="Moving selected order(s)…" />}
+
       <div className="mb-4 flex items-center justify-between">
         <Link to="/production" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
           <ArrowLeft size={15} /> Back
@@ -201,8 +212,14 @@ export default function ProductionOrdersPage() {
                       title="Export process sheet as PDF"
                       onClick={() => exportProcessSheet(o)}
                     />
-                    <ActionButton icon={ListChecks} label="Items" variant="view" to={`/production/orders/${o.id}/items`} />
-                    <ActionButton icon={Pencil} label="Edit" variant="edit" to={`/production/orders/${o.id}/edit`} />
+                    <ActionButton
+                      icon={Pencil}
+                      label="Edit"
+                      variant="edit"
+                      to={`/production/orders/${o.id}/edit`}
+                      disabled={o.status === 'completed'}
+                      title={o.status === 'completed' ? 'Completed orders are locked' : undefined}
+                    />
                     <ActionButton
                       icon={Trash2}
                       label="Delete"

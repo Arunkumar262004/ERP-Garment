@@ -2,20 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ProductionOrderCompleted;
 use App\Http\Controllers\Controller;
+use App\Mail\ProcessAssignedMail;
+use App\Mail\SalesUpdateMail;
 use App\Models\ProductionOrder;
 use App\Models\ProductionProcess;
 use App\Models\User;
 use App\Notifications\ProcessStageChangedNotification;
+use App\Services\MailService;
+use App\Services\WasenderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ProductionProcessController extends Controller
 {
-    protected const PROCESS_TYPE_LIST = ['dyeing', 'printing', 'cutting', 'stitching', 'packing', 'quality_check', 'other'];
-
-    protected const PROCESS_TYPES = 'cutting,dyeing,stitching,printing,packing,quality_check,other';
+    public function __construct(protected WasenderService $wasender, protected MailService $mail) {}
 
     public function stageCounts()
     {
@@ -23,7 +26,7 @@ class ProductionProcessController extends Controller
             ->groupBy('process_type', 'status')
             ->get();
 
-        $result = collect(self::PROCESS_TYPE_LIST)->map(function ($type) use ($rows) {
+        $result = collect(ProductionProcess::PROCESS_TYPES)->map(function ($type) use ($rows) {
             $forType = $rows->where('process_type', $type);
 
             return [
@@ -65,7 +68,7 @@ class ProductionProcessController extends Controller
     public function store(Request $request, ProductionOrder $productionOrder)
     {
         $data = $request->validate([
-            'process_type' => ['required', 'in:'.self::PROCESS_TYPES],
+            'process_type' => ['required', 'in:'.implode(',', ProductionProcess::PROCESS_TYPES)],
             'sequence' => ['nullable', 'integer', 'min:1'],
             'assigned_to' => ['nullable', 'exists:users,id'],
             'due_date' => ['nullable', 'date'],
@@ -140,11 +143,19 @@ class ProductionProcessController extends Controller
         }
 
         $oldStatus = $productionProcess->status;
+        $oldEmployeeId = $productionProcess->assigned_employee_id;
+        $oldAssignedTo = $productionProcess->assigned_to;
+
+        if (array_key_exists('due_date', $data) && $data['due_date'] !== $productionProcess->due_date?->toDateString()) {
+            $data['due_reminder_sent_at'] = null;
+        }
 
         $productionProcess->update($data);
 
-        $this->refreshOrderStatus($productionProcess->productionOrder);
+        $productionProcess->productionOrder->refreshStatusFromProcesses();
         $this->notifyStageChange($productionProcess, $oldStatus);
+        $this->notifyEmployeeAssignment($productionProcess, $oldEmployeeId);
+        $this->notifyAdminOfAssignment($productionProcess, $oldAssignedTo, $oldEmployeeId);
 
         return $productionProcess->load(['assignee', 'employee']);
     }
@@ -168,6 +179,78 @@ class ProductionProcessController extends Controller
             $process->fresh(['productionOrder.contact']),
             $oldStatus,
             $process->status
+        ));
+    }
+
+    /**
+     * Notify the shop-floor employee (mail + WhatsApp) when they're newly
+     * assigned to a process — a different audience from notifyStageChange()
+     * above, which notifies the system-user `assigned_to` about status moves.
+     * Silently does nothing if the employee didn't change or was cleared.
+     */
+    protected function notifyEmployeeAssignment(ProductionProcess $process, ?int $oldEmployeeId): void
+    {
+        if (! $process->assigned_employee_id || $process->assigned_employee_id === $oldEmployeeId) {
+            return;
+        }
+
+        $process = $process->fresh(['productionOrder.contact', 'employee']);
+        $employee = $process->employee;
+
+        if (! $employee) {
+            return;
+        }
+
+        if ($employee->email) {
+            $this->mail->send($employee->email, new ProcessAssignedMail($process));
+        }
+
+        if ($employee->phone) {
+            $stageLabel = ProductionOrder::STAGE_LABELS[$process->process_type] ?? $process->process_type;
+            $order = $process->productionOrder;
+
+            $this->wasender->sendText(
+                $employee->phone,
+                "Hi {$employee->name}, you've been assigned to the {$stageLabel} stage on order {$order->order_no} for {$order->contact?->name}."
+            );
+        }
+    }
+
+    /**
+     * Keep the admin in the loop on every assignment — whoever actually made
+     * the change (admin or any other staff member), the admin gets a short
+     * email confirming who a stage was just handed to. Covers both audiences
+     * a process can be assigned to: a system user (`assigned_to`) and a
+     * shop-floor employee (`assigned_employee_id`). Silently does nothing
+     * when neither actually changed, or no admin address is configured.
+     */
+    protected function notifyAdminOfAssignment(ProductionProcess $process, ?int $oldAssignedTo, ?int $oldEmployeeId): void
+    {
+        $adminEmail = config('services.admin_notifications.email');
+
+        if (! $adminEmail) {
+            return;
+        }
+
+        $assignedToChanged = $process->assigned_to && $process->assigned_to !== $oldAssignedTo;
+        $employeeChanged = $process->assigned_employee_id && $process->assigned_employee_id !== $oldEmployeeId;
+
+        if (! $assignedToChanged && ! $employeeChanged) {
+            return;
+        }
+
+        $process = $process->fresh(['productionOrder.contact', 'assignee', 'employee']);
+        $order = $process->productionOrder;
+        $stageLabel = ProductionOrder::STAGE_LABELS[$process->process_type] ?? $process->process_type;
+        $assignees = array_filter([$process->assignee?->name, $process->employee?->name]);
+
+        if (! $assignees) {
+            return;
+        }
+
+        $this->mail->send($adminEmail, new SalesUpdateMail(
+            "{$stageLabel} on {$order->order_no} assigned",
+            "{$stageLabel} on order {$order->order_no} ({$order->contact?->name}) was assigned to ".implode(' / ', $assignees).'.'
         ));
     }
 
@@ -205,7 +288,12 @@ class ProductionProcessController extends Controller
                 $delivery->update(['delivery_no' => sprintf('DLV-%05d', $delivery->id)]);
             }
 
+            $wasCompleted = $order->status === 'completed';
             $order->update(['status' => 'completed']);
+
+            if (! $wasCompleted) {
+                event(new ProductionOrderCompleted($order));
+            }
 
             return $delivery;
         });
@@ -225,7 +313,7 @@ class ProductionProcessController extends Controller
             'process_ids.*' => ['integer', 'exists:production_processes,id'],
             'production_order_ids' => ['required_without:process_ids', 'array', 'min:1'],
             'production_order_ids.*' => ['integer', 'exists:production_orders,id'],
-            'target_process_type' => ['required', 'in:'.self::PROCESS_TYPES],
+            'target_process_type' => ['required', 'in:'.implode(',', ProductionProcess::PROCESS_TYPES)],
         ]);
 
         if (! empty($data['production_order_ids'])) {
@@ -242,6 +330,37 @@ class ProductionProcessController extends Controller
         } else {
             $entries = ProductionProcess::with('productionOrder')->whereIn('id', $data['process_ids'])->get()
                 ->map(fn (ProductionProcess $process) => ['order' => $process->productionOrder, 'process' => $process]);
+        }
+
+        // Completed orders/stages are locked — reject the whole batch up front
+        // (no partial writes) so the frontend can show the error and stay put
+        // instead of navigating into a stage it then has to bounce back out of.
+        $blocked = [];
+        foreach ($entries as $entry) {
+            $order = $entry['order'];
+            $process = $entry['process'];
+
+            if ($order->status === 'completed') {
+                $blocked[] = "{$order->order_no} is already completed and locked.";
+
+                continue;
+            }
+
+            if ($process && $process->status === 'completed') {
+                $blocked[] = "{$order->order_no} — this stage is already completed and locked.";
+
+                continue;
+            }
+
+            $existingTarget = $order->processes()->where('process_type', $data['target_process_type'])->first();
+
+            if ($existingTarget && $existingTarget->status === 'completed') {
+                $blocked[] = "{$order->order_no} — the ".str_replace('_', ' ', $data['target_process_type']).' stage is already completed and locked.';
+            }
+        }
+
+        if (! empty($blocked)) {
+            return response()->json(['message' => implode(' ', $blocked)], 422);
         }
 
         $targets = [];
@@ -274,24 +393,13 @@ class ProductionProcessController extends Controller
                     $target->update(['status' => 'in_progress', 'start_date' => $target->start_date ?? now()->toDateString()]);
                 }
 
-                $this->refreshOrderStatus($order);
+                $order->refreshStatusFromProcesses();
 
                 $targets[] = ['production_order_id' => $order->id, 'production_process_id' => $target->id];
             }
         });
 
         return response()->json(['moved' => $entries->count(), 'targets' => $targets]);
-    }
-
-    protected function refreshOrderStatus(ProductionOrder $order): void
-    {
-        $statuses = $order->processes()->pluck('status');
-
-        if ($statuses->every(fn ($s) => $s === 'completed' || $s === 'skipped')) {
-            $order->update(['status' => 'completed']);
-        } elseif ($statuses->contains('in_progress') || $statuses->contains('completed')) {
-            $order->update(['status' => 'in_production']);
-        }
     }
 
     public function destroy(ProductionProcess $productionProcess)

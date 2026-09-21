@@ -2,10 +2,6 @@
 
 namespace App\Providers;
 
-use App\Events\QuotationApproved;
-use App\Listeners\SendQuotationApprovedEmail;
-use App\Listeners\SendQuotationApprovedWebhook;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,10 +16,16 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Bootstrap any application services.
+     *
+     * Listeners are never registered manually here — Laravel auto-discovers
+     * every class under app/Listeners with a type-hinted handle(EventClass
+     * $event) method. Registering one manually as well (as this file used to,
+     * for QuotationApproved's two listeners) double-registers it: the same
+     * listener runs twice per event, which silently double-sent the
+     * quotation-approved customer email and n8n webhook on every approval.
      */
     public function boot(): void
     {
-        Event::listen(QuotationApproved::class, SendQuotationApprovedWebhook::class);
-        Event::listen(QuotationApproved::class, SendQuotationApprovedEmail::class);
+        //
     }
 }

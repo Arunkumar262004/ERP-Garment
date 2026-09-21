@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\ProductionOrderCompleted;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,9 @@ class ProductionOrder extends Model
      * so the API and the UI table never disagree on what "current stage" means.
      */
     public const STAGE_LABELS = [
+        'knitting' => 'Knitting',
         'dyeing' => 'Dyeing',
+        'compacting' => 'Compacting',
         'printing' => 'Printing',
         'cutting' => 'Cutting',
         'stitching' => 'Stitching',
@@ -101,5 +104,27 @@ class ProductionOrder extends Model
     public function deliveries(): HasMany
     {
         return $this->hasMany(Delivery::class);
+    }
+
+    /**
+     * Recompute this order's overall status from its processes' statuses —
+     * called after anything changes a process's status. Fires
+     * ProductionOrderCompleted only on the transition into "completed",
+     * never on repeat calls once already there.
+     */
+    public function refreshStatusFromProcesses(): void
+    {
+        $statuses = $this->processes()->pluck('status');
+        $wasCompleted = $this->status === 'completed';
+
+        if ($statuses->every(fn ($s) => $s === 'completed' || $s === 'skipped')) {
+            $this->update(['status' => 'completed']);
+
+            if (! $wasCompleted) {
+                event(new ProductionOrderCompleted($this));
+            }
+        } elseif ($statuses->contains('in_progress') || $statuses->contains('completed')) {
+            $this->update(['status' => 'in_production']);
+        }
     }
 }

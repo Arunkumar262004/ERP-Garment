@@ -37,7 +37,7 @@ export default function QuotationsPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
 
   const selectedRows = rows.filter((r) => selectedIds.includes(r.id))
-  const allSelectedAccepted = selectedRows.length > 0 && selectedRows.every((r) => r.status === 'accepted')
+  const allSelectedApproved = selectedRows.length > 0 && selectedRows.every((r) => r.status === 'approved')
 
   // The quotations LIST doesn't eager-load `items` — fetch each full quotation
   // before creating from it, same fix as InvoiceFormPage's applyQuotation.
@@ -251,16 +251,16 @@ export default function QuotationsPage() {
             </button>
             <button
               onClick={() => bulkCreateProductionOrdersMutation.mutate()}
-              disabled={bulkBusy || !allSelectedAccepted}
+              disabled={bulkBusy || !allSelectedApproved}
               className="flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50 disabled:opacity-50"
             >
               <Shirt size={18} className="shrink-0 text-brand-600" />
               <span>
                 <span className="block text-sm font-medium text-slate-800">Create Production Orders</span>
                 <span className="block text-xs text-slate-500">
-                  {allSelectedAccepted
+                  {allSelectedApproved
                     ? 'Creates one production order per selected quotation, pre-filled with its customer and items.'
-                    : 'All selected quotations must be Accepted to create production orders.'}
+                    : 'All selected quotations must be Approved to create production orders.'}
                 </span>
               </span>
             </button>
