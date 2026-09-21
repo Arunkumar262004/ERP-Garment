@@ -39,6 +39,20 @@ docker-compose.yml
 - **Delivery** — dispatch and delivery tracking per production order.
 - **Reports** — module-wise reports (orders, B2B, B2C, CRM, production, purchase, accounts, delivery).
 
+## Demo data
+
+`DemoDataSeeder` adds ~10 realistic records (Tamil Nadu–based names, cities, and companies) to every module — contacts, leads, quotations, invoices, payments, production orders with process stages, suppliers, raw materials, purchase orders, and deliveries. It's intentionally **not** run automatically on `docker compose up` or `migrate --seed`, so it never fires unexpectedly against a database someone is already using — run it explicitly:
+
+```
+docker exec erp_backend php artisan db:seed --class=DemoDataSeeder
+```
+
+(or, without Docker: `php artisan db:seed --class=DemoDataSeeder` from `backend/`)
+
+It's safe to run more than once — most sections add another batch of demo records on top of what's there, and the few sections with unique constraints (raw materials) are skipped on repeat runs instead of erroring.
+
+**One real contact for testing automation:** the very first B2B contact it creates uses a real email address (`arunkumar957877@gmail.com`) instead of a `*.test` placeholder — and because every other seeded section (quotations, invoices, production orders) indexes contacts in the same order, that same contact is also behind the first record in each of those. Approving that quotation, completing that production order, etc. will send real email to that inbox — useful for verifying the mail/WhatsApp automation actually works. See the [Automation & Messaging Map](https://claude.ai/artifact/MZhNNJwsozhTXuzZAniuyB) for what triggers what.
+
 ## Local development without Docker
 
 Backend (requires PHP 8.3 + Composer):

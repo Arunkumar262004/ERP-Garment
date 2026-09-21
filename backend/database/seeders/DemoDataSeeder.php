@@ -28,10 +28,23 @@ use Illuminate\Support\Facades\Hash;
  * DatabaseSeeder (which drives the automatic first-boot seed): run it
  * explicitly with `php artisan db:seed --class=DemoDataSeeder` so it never
  * fires unexpectedly against a database someone is already using.
+ *
+ * Names, cities and company names are Tamil Nadu–flavored (Chennai,
+ * Coimbatore/Kovai, Tiruppur, Madurai, Salem, Erode, Karur — all real
+ * garment/textile hubs) so the demo reads like a genuine TN garment
+ * business rather than generic placeholder data.
+ *
+ * REAL_TEST_EMAIL is deliberately wired into the very first B2B contact
+ * (and therefore the first quotation/invoice/production order, since every
+ * loop below indexes contacts by the same position) so that approving that
+ * quotation, completing that order, etc. during manual testing sends real
+ * mail to an inbox you actually own instead of a throwaway *.test address.
  */
 class DemoDataSeeder extends Seeder
 {
     use WithoutModelEvents;
+
+    protected const REAL_TEST_EMAIL = 'arunkumar957877@gmail.com';
 
     protected const GARMENTS = [
         'Cotton T-Shirt', 'Denim Jeans', 'Formal Shirt', 'Polo Shirt', 'Hoodie',
@@ -42,6 +55,37 @@ class DemoDataSeeder extends Seeder
         'Cotton Fabric Roll', 'Denim Cloth', 'Linen Fabric', 'Polyester Blend', 'Twill Cotton',
         'Rib Knit Fabric', 'Fleece Fabric', 'Canvas Cloth', 'Jersey Knit', 'Corduroy Fabric',
     ];
+
+    protected const TN_CITIES = [
+        'Chennai', 'Coimbatore', 'Tiruppur', 'Madurai', 'Salem', 'Erode', 'Karur',
+        'Tirunelveli', 'Vellore', 'Thanjavur', 'Dindigul', 'Namakkal', 'Sivakasi', 'Nagercoil', 'Trichy',
+    ];
+
+    protected const TN_MALE_NAMES = [
+        'Karthik Subramaniam', 'Suresh Natarajan', 'Murugan Pillai', 'Elumalai Raja', 'Saravanan Krishnan',
+        'Prabhu Chandrasekaran', 'Rajesh Ganesan', 'Senthil Kumaresan', 'Balaji Venkataraman', 'Vignesh Shanmugam',
+        'Dinesh Ramanathan', 'Arun Swaminathan', 'Manikandan Murthy', 'Gopinath Sundaram', 'Ramkumar Balasubramaniam',
+        'Sathish Chettiar', 'Velmurugan Gounder', 'Kannan Mudaliar', 'Pandiyan Nadar', 'Thangaraj Iyer',
+    ];
+
+    protected const TN_FEMALE_NAMES = [
+        'Meenakshi Sundaram', 'Lakshmi Narayanan', 'Kavya Rajendran', 'Divya Shankar', 'Priya Venkatesan',
+        'Deepa Chandrasekaran', 'Saranya Muthukumar', 'Nithya Ramaswamy', 'Revathi Govindarajan', 'Sangeetha Elango',
+        'Vani Krishnamurthy', 'Abirami Sivakumar', 'Bhuvana Ranganathan', 'Gayathri Palaniappan', 'Janani Arumugam',
+        'Kalpana Subbiah', 'Malar Kaliappan', 'Nandhini Thiagarajan', 'Parvathi Duraisamy', 'Uma Maheswari',
+    ];
+
+    protected static function tnName(int $seed): string
+    {
+        $pool = $seed % 2 === 0 ? self::TN_MALE_NAMES : self::TN_FEMALE_NAMES;
+
+        return $pool[intdiv($seed, 2) % count($pool)];
+    }
+
+    protected static function tnCity(int $seed): string
+    {
+        return self::TN_CITIES[$seed % count(self::TN_CITIES)];
+    }
 
     public function run(): void
     {
@@ -83,13 +127,13 @@ class DemoDataSeeder extends Seeder
     protected function seedUsers(): array
     {
         $defs = [
-            ['name' => 'Vikram Sales', 'role' => 'sales', 'specialization' => 'healthcare_erp'],
-            ['name' => 'Meera Sales', 'role' => 'sales', 'specialization' => 'basic_crm'],
-            ['name' => 'Arjun Sales', 'role' => 'sales', 'specialization' => 'automation_crm'],
-            ['name' => 'Kavita Accounts', 'role' => 'accounts', 'specialization' => null],
-            ['name' => 'Ramesh Purchase', 'role' => 'purchase', 'specialization' => null],
-            ['name' => 'Sneha CRM', 'role' => 'crm', 'specialization' => 'general'],
-            ['name' => 'Deepak Viewer', 'role' => 'viewer', 'specialization' => null],
+            ['name' => 'Vignesh Shanmugam', 'role' => 'sales', 'specialization' => 'healthcare_erp'],
+            ['name' => 'Nithya Ramaswamy', 'role' => 'sales', 'specialization' => 'basic_crm'],
+            ['name' => 'Arun Swaminathan', 'role' => 'sales', 'specialization' => 'automation_crm'],
+            ['name' => 'Kavya Rajendran', 'role' => 'accounts', 'specialization' => null],
+            ['name' => 'Ramkumar Balasubramaniam', 'role' => 'purchase', 'specialization' => null],
+            ['name' => 'Sangeetha Elango', 'role' => 'crm', 'specialization' => 'general'],
+            ['name' => 'Dinesh Ramanathan', 'role' => 'viewer', 'specialization' => null],
         ];
 
         $ids = User::pluck('id')->all();
@@ -139,21 +183,27 @@ class DemoDataSeeder extends Seeder
     protected function seedContacts(string $type, int $count): array
     {
         $prefix = $type === 'b2b' ? 'B2B' : 'B2C';
-        $companies = ['Sunrise Garments', 'Metro Fashions', 'Coastal Textiles', 'Highland Apparel', 'Riverbank Trading',
-            'Golden Threads Co', 'Heritage Weavers', 'Prime Fabrics', 'Nova Garments', 'Silverline Exports'];
+        $companies = [
+            'Tiruppur Knitwear Exports', 'Kovai Cotton Mills', 'Erode Textile Traders', 'Karur Home Textiles',
+            'Salem Silk & Handloom', 'Madurai Meenakshi Garments', 'Sivakasi Apparel Hub', 'Chennai Fashion House',
+            'Nagercoil Garments Co', 'Trichy Textile Exports',
+        ];
         $ids = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $name = fake()->name();
+            $name = self::tnName($type === 'b2b' ? $i : $i + 30);
+            $isRealTestContact = $type === 'b2b' && $i === 0;
             $contact = Contact::create([
                 'type' => $type,
                 'name' => $name,
                 'company_name' => $type === 'b2b' ? $companies[$i % count($companies)] : null,
-                'email' => strtolower(str_replace(' ', '.', $name)).".$type{$i}@example.test",
+                'email' => $isRealTestContact
+                    ? self::REAL_TEST_EMAIL
+                    : strtolower(str_replace(' ', '.', $name)).".$type{$i}@example.test",
                 'phone' => (string) fake()->numerify('9#########'),
-                'gst_number' => $type === 'b2b' ? strtoupper(fake()->bothify('##???####?#?#')) : null,
-                'city' => fake()->city(),
-                'state' => fake()->randomElement(['Maharashtra', 'Gujarat', 'Karnataka', 'Tamil Nadu', 'Delhi']),
+                'gst_number' => $type === 'b2b' ? '33'.strtoupper(fake()->bothify('???##????#?#')) : null,
+                'city' => self::tnCity($i),
+                'state' => 'Tamil Nadu',
                 'country' => 'India',
                 'status' => 'active',
             ]);
@@ -172,7 +222,7 @@ class DemoDataSeeder extends Seeder
         $ids = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $name = fake()->name();
+            $name = self::tnName($i + 60);
             $employee = Contact::create([
                 'type' => 'employee',
                 'name' => $name,
@@ -198,13 +248,18 @@ class DemoDataSeeder extends Seeder
         $statuses = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
         $ids = [];
 
+        $leadCompanies = ['Kovai Weavers Guild', 'Tiruppur Yarn House', 'Madurai Silk Emporium', 'Salem Cotton Traders',
+            'Erode Textile Junction', 'Karur Home Furnishings', 'Sivakasi Uniform Suppliers', 'Nagercoil Fabric Mart',
+            'Trichy Garment Traders', 'Chennai Retail Collective'];
+
         for ($i = 0; $i < 10; $i++) {
             $garment = self::GARMENTS[$i % count(self::GARMENTS)];
+            $name = self::tnName($i + 80);
             $lead = Lead::create([
                 'contact_id' => $i % 3 === 0 ? $contactIds[$i % count($contactIds)] : null,
-                'name' => fake()->name(),
-                'company_name' => fake()->boolean(60) ? fake()->company() : null,
-                'email' => fake()->unique()->safeEmail(),
+                'name' => $name,
+                'company_name' => fake()->boolean(60) ? $leadCompanies[$i % count($leadCompanies)] : null,
+                'email' => strtolower(str_replace(' ', '.', $name)).".lead{$i}@example.test",
                 'phone' => (string) fake()->numerify('9#########'),
                 'source' => $sources[$i % count($sources)],
                 'status' => $statuses[$i % count($statuses)],
@@ -428,18 +483,18 @@ class DemoDataSeeder extends Seeder
 
     protected function seedSuppliers(): array
     {
-        $names = ['Shree Fabrics Supply Co', 'National Textile Traders', 'Om Dyeing Works', 'Balaji Threads',
-            'Everest Fabric House', 'Sunshine Cloth Mills', 'Prime Yarn Suppliers', 'Krishna Textile Agency',
-            'Sagar Buttons & Trims', 'Vishal Packaging Supplies'];
+        $names = ['Sri Meenakshi Fabrics', 'Kovai Yarn Traders', 'Tiruppur Dyeing Works', 'Annamalai Textile Mills',
+            'Murugan Threads & Trims', 'Salem Textile Agency', 'Karur Bedsheet Suppliers', 'Lakshmi Packaging Supplies',
+            'SVS Textiles', 'Nadar Cotton Traders'];
         $ids = [];
 
-        foreach ($names as $name) {
+        foreach ($names as $i => $name) {
             $supplier = Supplier::create([
                 'name' => $name,
-                'contact_person' => fake()->name(),
+                'contact_person' => self::tnName($i + 100),
                 'phone' => (string) fake()->numerify('9#########'),
                 'email' => strtolower(str_replace(' ', '.', $name)).'@supplier.test',
-                'gst_number' => strtoupper(fake()->bothify('##???####?#?#')),
+                'gst_number' => '33'.strtoupper(fake()->bothify('???##????#?#')),
                 'status' => 'active',
             ]);
             $supplier->update(['code' => sprintf('SUP-%05d', $supplier->id)]);
@@ -454,16 +509,18 @@ class DemoDataSeeder extends Seeder
         $ids = [];
 
         foreach (self::FABRICS as $i => $fabric) {
-            $material = RawMaterial::create([
-                'sku' => sprintf('RM-DEMO-%03d', $i + 1),
-                'name' => $fabric,
-                'category' => 'Fabric',
-                'unit' => 'meter',
-                'current_stock' => fake()->numberBetween(50, 1000),
-                'reorder_level' => 200,
-                'unit_price' => fake()->numberBetween(80, 250),
-                'default_supplier_id' => $supplierIds[$i % count($supplierIds)],
-            ]);
+            $material = RawMaterial::firstOrCreate(
+                ['sku' => sprintf('RM-DEMO-%03d', $i + 1)],
+                [
+                    'name' => $fabric,
+                    'category' => 'Fabric',
+                    'unit' => 'meter',
+                    'current_stock' => fake()->numberBetween(50, 1000),
+                    'reorder_level' => 200,
+                    'unit_price' => fake()->numberBetween(80, 250),
+                    'default_supplier_id' => $supplierIds[$i % count($supplierIds)],
+                ]
+            );
             $ids[] = $material->id;
         }
 
@@ -573,10 +630,10 @@ class DemoDataSeeder extends Seeder
                 'production_order_id' => $order->id,
                 'contact_id' => $order->contact_id,
                 'delivery_date' => now()->addDays(fake()->numberBetween(-5, 15)),
-                'delivery_address' => fake()->address(),
+                'delivery_address' => fake()->buildingNumber().', '.self::tnCity($i).', Tamil Nadu, India',
                 'status' => $statuses[$i % count($statuses)],
                 'tracking_no' => strtoupper(fake()->bothify('TRK-########')),
-                'delivered_by' => $userIds ? fake()->name() : null,
+                'delivered_by' => $userIds ? self::tnName($i + 120) : null,
                 'created_by' => $userIds[array_rand($userIds)],
             ]);
             $delivery->update(['delivery_no' => sprintf('DLV-%05d', $delivery->id)]);

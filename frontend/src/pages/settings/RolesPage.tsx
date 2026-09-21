@@ -1,6 +1,21 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2 } from 'lucide-react'
+import {
+  BarChart3,
+  LayoutDashboard,
+  Package,
+  Pencil,
+  Ruler,
+  Settings as SettingsIcon,
+  Shirt,
+  ShoppingBag,
+  Target,
+  Trash2,
+  Truck,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import { api } from '../../api/client'
 import type { Role } from '../../types'
 import { useAuth } from '../../auth/AuthContext'
@@ -8,7 +23,21 @@ import { useToast } from '../../components/ToastProvider'
 import ActionButton from '../../components/ActionButton'
 import Modal from '../../components/Modal'
 import Toggle from '../../components/Toggle'
-import { MODULE_TREE } from '../../lib/modules'
+import { MODULE_TREE, allModuleKeys } from '../../lib/modules'
+
+const GROUP_ICONS: Record<string, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  contacts: Users,
+  crm: Target,
+  accounts: Wallet,
+  production: Shirt,
+  purchase: ShoppingBag,
+  delivery: Truck,
+  inventory: Package,
+  reports: BarChart3,
+  masters: Ruler,
+  settings: SettingsIcon,
+}
 
 interface RoleFormState {
   name: string
@@ -107,6 +136,10 @@ export default function RolesPage() {
     }))
   }
 
+  const totalModuleKeys = allModuleKeys()
+  const selectAll = () => setForm((prev) => ({ ...prev, permissions: totalModuleKeys }))
+  const clearAll = () => setForm((prev) => ({ ...prev, permissions: [] }))
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (editing) {
@@ -198,23 +231,71 @@ export default function RolesPage() {
             </div>
 
             <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">Modules</p>
-              <div className="max-h-[50vh] space-y-1 overflow-y-auto rounded-md border border-slate-200 p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Modules</p>
+                  <p className="text-xs text-slate-400">
+                    {form.permissions.length} of {totalModuleKeys.length} enabled
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={selectAll}
+                    className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid max-h-[55vh] grid-cols-1 gap-3 overflow-y-auto p-0.5 sm:grid-cols-2">
                 {MODULE_TREE.map((group) => {
                   const childKeys = group.items?.map((i) => i.key) ?? []
                   const groupChecked = [group.key, ...childKeys].every((k) => form.permissions.includes(k))
+                  const anyChecked = form.permissions.includes(group.key) || childKeys.some((k) => form.permissions.includes(k))
+                  const Icon = GROUP_ICONS[group.key]
 
                   return (
-                    <div key={group.key} className="py-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-800">{group.label}</span>
+                    <div
+                      key={group.key}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        groupChecked
+                          ? 'border-brand-200 bg-brand-50/60'
+                          : anyChecked
+                            ? 'border-brand-200/70 bg-white'
+                            : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                              groupChecked
+                                ? 'bg-brand-600 text-white'
+                                : anyChecked
+                                  ? 'bg-brand-100 text-brand-600'
+                                  : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {Icon && <Icon size={15} />}
+                          </span>
+                          <span className="text-sm font-semibold text-slate-800">{group.label}</span>
+                        </span>
                         <Toggle checked={groupChecked} onChange={() => toggleModule(group.key, childKeys)} />
                       </div>
                       {group.items && (
-                        <div className="mt-1.5 ml-4 space-y-1.5 border-l border-slate-100 pl-3">
+                        <div className="mt-2.5 space-y-1.5 border-t border-slate-200/70 pt-2.5 pl-9">
                           {group.items.map((item) => (
                             <div key={item.key} className="flex items-center justify-between">
-                              <span className="text-sm text-slate-600">{item.label}</span>
+                              <span className="text-xs text-slate-600">{item.label}</span>
                               <Toggle checked={form.permissions.includes(item.key)} onChange={() => toggleItem(item.key)} />
                             </div>
                           ))}
