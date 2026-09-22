@@ -9,6 +9,7 @@ use App\Models\Lead;
 use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
 use App\Models\Quotation;
+use Illuminate\Http\Request;
 
 class LookupController extends Controller
 {
@@ -17,9 +18,17 @@ class LookupController extends Controller
      * module it belongs to. Deliberately returns everything rather than
      * picking out a field — an LLM-driven caller (e.g. n8n's AI Agent) decides
      * which part of the data actually answers the user's question.
+     *
+     * Server-to-server only, guarded by a shared secret header (same pattern
+     * as LeadController::publicCapture) rather than auth:sanctum, since the
+     * caller is n8n's workflow engine, not a logged-in browser session.
      */
-    public function show(string $code)
+    public function show(Request $request, string $code)
     {
+        $configured = config('services.n8n.lookup_secret');
+        abort_if(! $configured, 503, 'Lookup is not configured.');
+        abort_unless(hash_equals($configured, (string) $request->header('X-N8N-Lookup-Secret')), 401, 'Invalid or missing lookup secret.');
+
         $code = strtoupper($code);
 
         $record = match (true) {

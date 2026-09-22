@@ -5,14 +5,23 @@ namespace Tests\Feature;
 use App\Models\Contact;
 use App\Models\Lead;
 use App\Models\ProductionOrder;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class LookupTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['services.n8n.lookup_secret' => 'test-lookup-secret']);
+    }
+
+    protected function withSecretHeader(array $headers = []): array
+    {
+        return ['X-N8N-Lookup-Secret' => 'test-lookup-secret', ...$headers];
+    }
 
     public function test_looks_up_a_contact_by_code_and_returns_full_record(): void
     {
@@ -24,9 +33,7 @@ class LookupTest extends TestCase
             'email' => 'rajesh@kumartextiles.test',
         ]);
 
-        Sanctum::actingAs(User::factory()->create());
-
-        $response = $this->getJson('/api/lookup/B2B-00011');
+        $response = $this->getJson('/api/public/lookup/B2B-00011', $this->withSecretHeader());
 
         $response->assertOk();
         $response->assertJson([
@@ -55,9 +62,7 @@ class LookupTest extends TestCase
         $order->processes()->create(['process_type' => 'dyeing', 'sequence' => 1, 'status' => 'completed']);
         $order->processes()->create(['process_type' => 'cutting', 'sequence' => 2, 'status' => 'in_progress']);
 
-        Sanctum::actingAs(User::factory()->create());
-
-        $response = $this->getJson('/api/lookup/prd-00003');
+        $response = $this->getJson('/api/public/lookup/prd-00003', $this->withSecretHeader());
 
         $response->assertOk();
         $response->assertJson([
@@ -80,9 +85,7 @@ class LookupTest extends TestCase
             'status' => 'qualified',
         ]);
 
-        Sanctum::actingAs(User::factory()->create());
-
-        $response = $this->getJson('/api/lookup/LEAD-00001');
+        $response = $this->getJson('/api/public/lookup/LEAD-00001', $this->withSecretHeader());
 
         $response->assertOk();
         $response->assertJson([
@@ -94,16 +97,30 @@ class LookupTest extends TestCase
 
     public function test_returns_not_found_for_an_unknown_code(): void
     {
-        Sanctum::actingAs(User::factory()->create());
-
-        $response = $this->getJson('/api/lookup/PRD-99999');
+        $response = $this->getJson('/api/public/lookup/PRD-99999', $this->withSecretHeader());
 
         $response->assertStatus(404);
         $response->assertJson(['found' => false]);
     }
 
-    public function test_requires_authentication(): void
+    public function test_rejects_a_request_without_the_secret_header(): void
     {
-        $this->getJson('/api/lookup/PRD-00001')->assertUnauthorized();
+        $this->getJson('/api/public/lookup/PRD-00001')->assertUnauthorized();
+    }
+
+    public function test_rejects_a_request_with_the_wrong_secret(): void
+    {
+        $response = $this->getJson('/api/public/lookup/PRD-00001', ['X-N8N-Lookup-Secret' => 'wrong']);
+
+        $response->assertUnauthorized();
+    }
+
+    public function test_returns_503_when_no_secret_is_configured(): void
+    {
+        config(['services.n8n.lookup_secret' => null]);
+
+        $response = $this->getJson('/api/public/lookup/PRD-00001', $this->withSecretHeader());
+
+        $response->assertStatus(503);
     }
 }

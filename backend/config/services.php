@@ -39,6 +39,11 @@ return [
         'quotation_webhook_url' => env('N8N_QUOTATION_WEBHOOK_URL'),
         'webhook_secret' => env('N8N_WEBHOOK_SECRET'),
         'chat_webhook_url' => env('N8N_CHAT_WEBHOOK_URL'),
+        // Separate secret from webhook_secret above: that one is Laravel proving
+        // its identity to n8n; this one is n8n proving its identity back to
+        // Laravel when the chat AI Agent calls GET /api/lookup/{code} to answer
+        // a question. Distinct secrets so a leak of one doesn't hand over the other.
+        'lookup_secret' => env('N8N_LOOKUP_SECRET'),
     ],
 
     'lead_capture' => [

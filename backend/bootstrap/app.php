@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,4 +20,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // This app is API-only — there's no `login` named route for the default
+        // auth:sanctum middleware to redirect unauthenticated requests to. Without
+        // this, any unauthenticated hit to a protected route that doesn't send an
+        // `Accept: application/json` header (n8n's HTTP node, curl, etc. — browsers
+        // usually do) crashes with a 500 RouteNotFoundException instead of a clean
+        // 401, and leaks a full stack trace in the response.
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+        });
     })->create();

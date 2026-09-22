@@ -41,6 +41,14 @@ Route::post('/public/leads', [LeadController::class, 'publicCapture']);
 // instead to deter abuse.
 Route::post('/public/inquiries', [LeadController::class, 'publicInquiry'])->middleware('throttle:10,1');
 
+// Same "secret header, no login" pattern as /public/leads above — this is the
+// endpoint the n8n chat AI Agent calls back into to look up a business record
+// while answering a user's question. It was previously (wrongly) inside the
+// auth:sanctum group below, which n8n can never satisfy since it has no user
+// session; that made every lookup fail with an auth error the AI Agent would
+// relay verbatim ("I don't have the proper authorization...").
+Route::get('/public/lookup/{code}', [LookupController::class, 'show']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -107,7 +115,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('deliveries', DeliveryController::class);
 
     Route::post('/n8n/test', [N8nTestController::class, 'ping']);
-    Route::get('/lookup/{code}', [LookupController::class, 'show']);
     Route::post('/chat/ask', [ChatProxyController::class, 'ask']);
 
     Route::prefix('reports')->group(function () {
