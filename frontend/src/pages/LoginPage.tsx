@@ -1,28 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ArrowRight,
-  BarChart3,
-  Eye,
-  EyeOff,
-  Loader2,
-  Lock,
-  Mail,
-  Shirt,
-  Truck,
-  Users,
-} from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Loader2, Shirt } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 
-const FEATURES = [
-  { icon: Shirt, title: 'Production', text: 'Track orders from cutting to dispatch.' },
-  { icon: Users, title: 'Contacts & CRM', text: 'Customers, leads and tasks in one place.' },
-  { icon: Truck, title: 'Purchasing', text: 'Manage suppliers and incoming stock.' },
-  { icon: BarChart3, title: 'Reports', text: 'Live dashboards and exportable reports.' },
-]
+const FEATURES = ['Production tracking', 'Contacts & CRM', 'Purchasing & stock', 'Live reports']
 
 const DEMO_EMAIL = 'admin@erp.test'
 const DEMO_PASSWORD = 'password'
+
+const inputClass =
+  'w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 transition placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/5'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -54,85 +41,89 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-white text-zinc-900">
       {/* Brand panel */}
-      <div className="relative hidden w-1/2 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-indigo-600 lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-indigo-400/20 blur-3xl" />
+      <aside className="relative hidden w-[44%] flex-col overflow-hidden bg-zinc-950 p-12 lg:flex">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.15]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)',
+            backgroundSize: '28px 28px',
+            maskImage: 'radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)',
+            WebkitMaskImage: 'radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)',
+          }}
+        />
+        <div className="pointer-events-none absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-white/[0.04] blur-3xl" />
 
-        <div className="relative flex items-center gap-3 text-white">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
-            <Shirt className="h-5 w-5" />
+        <div className="relative flex items-center gap-2.5 text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-zinc-950">
+            <Shirt className="h-4.5 w-4.5" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">ERP System</span>
+          <span className="text-base font-semibold tracking-tight">ERP System</span>
         </div>
 
-        <div className="relative max-w-md">
-          <h2 className="text-4xl font-bold leading-tight text-white">
-            Run your whole business from one dashboard.
-          </h2>
-          <p className="mt-4 text-brand-100">
-            Production, sales, purchasing and accounts — connected and automated.
+        <div className="relative my-auto max-w-md py-16">
+          <p className="mb-5 text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
+            Garment ERP
           </p>
+          <h2 className="text-4xl font-semibold leading-[1.15] tracking-tight text-white xl:text-5xl">
+            Everything your
+            <br />
+            business runs on.
+            <br />
+            <span className="text-zinc-500">In one place.</span>
+          </h2>
 
-          <div className="mt-10 grid grid-cols-2 gap-4">
-            {FEATURES.map(({ icon: Icon, title, text }) => (
-              <div
-                key={title}
-                className="rounded-xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm"
-              >
-                <Icon className="h-5 w-5 text-white" />
-                <p className="mt-3 text-sm font-semibold text-white">{title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-brand-100">{text}</p>
-              </div>
+          <ul className="mt-12 space-y-3.5">
+            {FEATURES.map((f) => (
+              <li key={f} className="flex items-center gap-3 text-sm text-zinc-300">
+                <span className="h-px w-5 bg-zinc-600" />
+                {f}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        <p className="relative text-xs text-brand-200">
-          © {new Date().getFullYear()} ERP System. All rights reserved.
+        <p className="relative text-xs text-zinc-600">
+          © {new Date().getFullYear()} ERP System
         </p>
-      </div>
+      </aside>
 
       {/* Form panel */}
-      <div className="flex w-full items-center justify-center bg-slate-50 px-4 py-12 lg:w-1/2 lg:bg-white">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Shirt className="h-5 w-5" />
+      <main className="flex flex-1 items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[360px]">
+          <div className="mb-10 flex items-center gap-2.5 lg:hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-950 text-white">
+              <Shirt className="h-4.5 w-4.5" />
             </div>
-            <span className="text-lg font-semibold text-slate-900">ERP System</span>
+            <span className="text-base font-semibold tracking-tight">ERP System</span>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to continue to your workspace.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+          <p className="mt-1.5 text-sm text-zinc-500">Welcome back. Enter your details to continue.</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700">
                 Email
               </label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100"
-                />
-              </div>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className={inputClass}
+              />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-700">
                 Password
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
@@ -141,13 +132,13 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                  className={`${inputClass} pr-11`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-2 text-zinc-400 transition hover:text-zinc-900"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -155,15 +146,13 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
-              </div>
+              <p className="rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{error}</p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="group flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/30 transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60"
+              className="group flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-900/15 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
@@ -172,32 +161,31 @@ export default function LoginPage() {
                 </>
               ) : (
                 <>
-                  Sign in
-                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                  Continue
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-8 rounded-lg border border-dashed border-brand-200 bg-brand-50 px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-brand-800">
-                <p className="font-semibold">Demo account</p>
-                <p className="mt-0.5 text-brand-700">
-                  {DEMO_EMAIL} / {DEMO_PASSWORD}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={fillDemo}
-                className="shrink-0 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-brand-700 ring-1 ring-brand-200 hover:bg-brand-100"
-              >
-                Use demo
-              </button>
-            </div>
+          <div className="my-8 flex items-center gap-3 text-xs text-zinc-400">
+            <span className="h-px flex-1 bg-zinc-100" />
+            Demo access
+            <span className="h-px flex-1 bg-zinc-100" />
           </div>
+
+          <button
+            type="button"
+            onClick={fillDemo}
+            className="flex w-full items-center justify-between rounded-lg border border-zinc-200 px-3.5 py-2.5 text-left text-sm transition hover:border-zinc-300 hover:bg-zinc-50"
+          >
+            <span className="font-mono text-xs text-zinc-500">
+              {DEMO_EMAIL} · {DEMO_PASSWORD}
+            </span>
+            <span className="text-xs font-medium text-zinc-900">Fill</span>
+          </button>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
