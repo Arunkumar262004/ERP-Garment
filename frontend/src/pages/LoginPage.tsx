@@ -11,7 +11,6 @@ import {
   Lock,
   Mail,
   ShieldCheck,
-  Shirt,
   Sparkles,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -109,9 +108,11 @@ export default function LoginPage() {
       <div className="flex w-full items-center justify-center overflow-y-auto px-4 py-8 lg:w-[40%]">
         <div className="w-full max-w-[380px] rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.08)] sm:p-7">
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white shadow-md shadow-primary-600/25">
-              <Shirt className="h-5 w-5" />
-            </div>
+            <img
+              src="/sales-fav.jpg"
+              alt="ERP System"
+              className="mx-auto mb-4 h-12 w-12 rounded-xl object-cover shadow-md ring-1 ring-slate-200"
+            />
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
               Sign in to <span className="text-primary-600">ERP System</span>
             </h1>

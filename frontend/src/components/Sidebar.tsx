@@ -156,14 +156,20 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
 
   return (
     <aside
-      className={`hidden shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white transition-all duration-200 md:flex ${
+      className={`hidden shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white transition-all duration-200 md:flex ${
         collapsed ? 'w-20' : 'w-64'
       }`}
     >
-      <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-indigo-600 text-white shadow-sm">
-          <Shirt size={20} />
-        </div>
+      <div
+        className={`flex h-16 shrink-0 items-center gap-2.5 border-b border-slate-200 ${
+          collapsed ? 'justify-center px-2' : 'px-4'
+        }`}
+      >
+        <img
+          src="/sales-fav.jpg"
+          alt="Garment ERP"
+          className="h-9 w-9 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-slate-200"
+        />
         {!collapsed && (
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-slate-800">Garment ERP</p>
@@ -172,7 +178,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {nav.map((group) => {
           const Icon = group.icon
 
@@ -243,7 +249,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         })}
       </nav>
 
-      <div className="border-t border-slate-200 p-3">
+      <div className="shrink-0 border-t border-slate-200 p-3">
         <a
           href="mailto:support@garment-erp.test"
           title={collapsed ? 'Need Help?' : undefined}
