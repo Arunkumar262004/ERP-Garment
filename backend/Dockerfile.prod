@@ -16,4 +16,5 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 
 CMD php artisan config:cache && php artisan route:cache \
     && php artisan migrate --force \
+    && php artisan tinker --execute="if (\App\Models\User::count() === 0) { \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]); }" \
     && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
