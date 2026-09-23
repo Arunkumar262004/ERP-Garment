@@ -26,7 +26,6 @@ interface Slide {
   title: string
   text: string
   chips: string[]
-  highlight: ('rack' | 'screen' | 'boxes' | 'chart')[]
 }
 
 const SLIDES: Slide[] = [
@@ -34,19 +33,16 @@ const SLIDES: Slide[] = [
     title: 'All-in-one ERP for garment manufacturing',
     text: 'Manage production, stock, purchase, sales, accounts and reports in one connected platform.',
     chips: ['Production', 'Purchase', 'Accounts', 'Reports'],
-    highlight: ['rack', 'screen', 'boxes', 'chart'],
   },
   {
     title: 'Track every order from cutting to dispatch',
     text: 'See the live status of each production order at every stage, without chasing anyone for updates.',
     chips: ['Cutting', 'Stitching', 'Packing', 'Dispatch'],
-    highlight: ['rack', 'boxes'],
   },
   {
     title: 'Live insights with smart automation',
     text: 'Dashboards, alerts and exportable reports keep your whole team on top of the numbers.',
     chips: ['Dashboards', 'Alerts', 'PDF & CSV', 'Automation'],
-    highlight: ['screen', 'chart'],
   },
 ]
 
@@ -108,7 +104,7 @@ export default function LoginPage() {
   const current = SLIDES[slide]
 
   return (
-    <div className="flex min-h-screen bg-slate-50/50 lg:h-screen">
+    <div className="flex min-h-screen bg-gradient-to-br from-white to-primary-50/40 lg:h-screen">
       {/* Form side */}
       <div className="flex w-full items-center justify-center overflow-y-auto px-4 py-8 lg:w-[40%]">
         <div className="w-full max-w-[380px] rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.08)] sm:p-7">
@@ -227,8 +223,9 @@ export default function LoginPage() {
       </div>
 
       {/* Showcase side */}
-      <div className="relative hidden flex-1 overflow-hidden bg-gradient-to-br from-primary-50/70 via-slate-50 to-primary-100/40 p-5 lg:flex">
-        <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-primary-200/30 blur-3xl" />
+      <div className="relative hidden flex-1 overflow-hidden bg-gradient-to-br from-primary-50 via-fuchsia-50/40 to-indigo-50/70 p-5 lg:flex">
+        <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-primary-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-fuchsia-100/50 blur-3xl" />
 
         <div className="relative flex w-full flex-col rounded-3xl border border-white bg-white/80 p-6 shadow-[0_20px_50px_-24px_rgba(15,23,42,0.15)] backdrop-blur">
           <div className="flex items-center justify-between">
@@ -262,7 +259,7 @@ export default function LoginPage() {
             </button>
 
             <div className="h-full max-h-[300px] w-full max-w-[420px]">
-              <LoginIllustration active={current.highlight} />
+              <LoginIllustration variant={slide} />
             </div>
 
             <button

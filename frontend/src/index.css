@@ -12,22 +12,27 @@
   --color-brand-800: #5b21b6;
   --color-brand-900: #4c1d95;
 
-  --color-primary-50: #f0fdfa;
-  --color-primary-100: #ccfbf1;
-  --color-primary-200: #99f6e4;
-  --color-primary-300: #5eead4;
-  --color-primary-400: #2dd4bf;
-  --color-primary-500: #14b8a6;
-  --color-primary-600: #0d9488;
-  --color-primary-700: #0f766e;
-  --color-primary-800: #115e59;
+  --color-primary-50: #f8f6ff;
+  --color-primary-100: #f0ebff;
+  --color-primary-200: #e0d6fe;
+  --color-primary-300: #c9b8fb;
+  --color-primary-400: #ab92f5;
+  --color-primary-500: #9272ec;
+  --color-primary-600: #7a58db;
+  --color-primary-700: #6445bf;
+  --color-primary-800: #4f3697;
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-fade-up: fade-up 0.5s ease-out both;
+  --animate-dash: dash 1.2s linear infinite;
 
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-10px); }
+  }
+
+  @keyframes dash {
+    to { stroke-dashoffset: -36; }
   }
 
   @keyframes fade-up {
